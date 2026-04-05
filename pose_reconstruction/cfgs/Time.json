@@ -1,0 +1,51 @@
+{
+    "alphas": {
+        "Sil": 50,
+        "Keyp": 1,
+        "Scale": 0,
+        "JT_scale": 0,
+        "Cage": 0,
+        "Jt_angle": 3,
+        "Prev_b_p": 0,
+        "Prev_3dkp": 0,
+        "Kin": 0,
+        "Vertex_offset_norm": 0,
+        "Vertex_smooth": 0,
+        "Max_rot_loss": 0,
+        "Normal_ref_loss": 0,
+        "Angle_consist": 0,
+        "Hull": 0,
+        "Edge": 0,
+        "Laplacian": 0,
+        "IoU": 0,
+        "RGB": 0,
+        "rgb_lim": 0,
+        "T": 10,
+        "Mahalanobis": 0
+    },
+    "epochs": 350,
+    "param_flags": {
+        "R": true,
+        "t": true,
+        "s": false,
+        "body_pose": true,
+        "bone_lengths": false,
+        "vertex_offsets": false,
+        "rgb": false
+    },
+    "param_lr": {
+        "R": 0.01,
+        "t": 0.01,
+        "s": 0,
+        "body_pose": 0.01,
+        "bone_lengths": 0,
+        "vertex_offsets": 0,
+        "rgb": 0
+    },
+    "T": 5,
+    "Scheduler": true,
+    "Load_Params": true,
+    "WeightedSil": false,
+    "hand_weight_joint": 1,
+    "tail_weight_joint": 1
+}
