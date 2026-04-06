@@ -89,11 +89,16 @@ def main():
     verbose = 0
     debug = False
     nb_ind_actions = 6
-    action_loader = ActionLoader(path_to_label_split=None, path_to_dataset=None,
+
+    hard_drive_loc = r"/media/lucas/W-2/BigMaQ"
+
+    path_to_dataset = join(hard_drive_loc, "dataset_overview.csv")
+
+    action_loader = ActionLoader(path_to_label_split=None, path_to_dataset=path_to_dataset,
                                  vertex_symm_path=vertex_weights_symmetry,
                                          device=device, max_image_size=max_img_size, labels_only=labels_only, debug=debug,
                                  high_poly=high_poly, force_action_reload=force_action_reload, same_size=squared_images,
-                                 hard_drive_loc=drive_loc)
+                                 hard_drive_loc=hard_drive_loc)
     action_loader.project_root = project_root
     # Create the mesh model
     mesh_model = MeshModel(mesh=path_to_mesh, device=device)

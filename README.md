@@ -25,3 +25,9 @@
 
 
 - After it all runs, clean the code for unnecessary things, dead code
+
+
+- for a given action:
+  - 1/7 GB for masks of entire video size
+  - a little more for yolo crops
+  - ---> try to get the images out of the videos

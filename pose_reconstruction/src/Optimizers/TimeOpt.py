@@ -803,7 +803,14 @@ class TimeOptimizer(SharedVertexOptimizer):
 
 
 
-        action_indices_to_iterate = [0]
+        # 499 is displacement
+
+        idx = self.action_loader.dataset.index[self.action_loader.dataset["Unnamed: 0"] == 499][0]
+
+        action_indices_to_iterate = [idx]
+
+
+        #todo: set up iterating over the datset entirely.
 
         for action_iterate_index, action_index in enumerate(action_indices_to_iterate):
 
@@ -838,13 +845,12 @@ class TimeOptimizer(SharedVertexOptimizer):
             for ind_index, ind in enumerate(self.action_loader.unique_individuals):
                 self.cur_ind = ind
 
-
                 if self.action_loader.high_poly:
                     self.ind_params_path = join(self.action_loader.hard_drive_loc,
-                                                rf"IndividualFitsParameters/{self.cur_ind}_Color.pth")
+                                                rf"IndividualFits/{self.cur_ind}_Color.pth")
                 else:
                     self.ind_params_path = join(self.action_loader.hard_drive_loc,
-                                                rf"IndividualFitsParameters/{self.cur_ind}_Color_{False}.pth")
+                                                rf"IndividualFits/{self.cur_ind}_Color_{False}.pth")
 
                 # Move past individuals that are not part of the action
                 if not self.cur_ind in self.action_loader.individuals:

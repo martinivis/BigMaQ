@@ -830,8 +830,8 @@ class BaseOptimizer():
 
                         self.action_loader.vertex_info["reduced_excluded_vertices"] = extended_vertex_info
 
-                        vertex_symm_update_path = join(self.action_loader.hard_drive_loc,
-                                                       r"Mesh/vertex_info_hands_excluded.json")
+                        vertex_symm_update_path = join(self.action_loader.project_root,
+                                                       r"data/Mesh/vertex_info_hands_excluded.json")
 
                         with open(vertex_symm_update_path, 'w') as json_file:
                             json.dump(self.action_loader.vertex_info, json_file)
