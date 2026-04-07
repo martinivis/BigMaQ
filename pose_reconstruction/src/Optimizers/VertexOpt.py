@@ -2,12 +2,12 @@ from pose_reconstruction.src.Optimizers.BaseOpt import BaseOptimizer
 from pose_reconstruction.src.utils.data_loader import ActionLoader
 from pytorch3d.renderer import PointLights, AmbientLights
 from pytorch3d.renderer import MeshRenderer, MeshRasterizer, RasterizationSettings
-from pose_reconstruction.src.utils.utils import check_create_path
+from pose_reconstruction.src.utils.utils import check_create_path, smooth
 from os.path import join
 import json
 import torch
 from procrustes import orthogonal
-from scipy.spatial.transform import Rotation as R
+from scipy.spatial.transform import Rotation as R, Slerp
 import os
 import time
 from tqdm import tqdm
@@ -170,7 +170,7 @@ class SharedVertexOptimizer(BaseOptimizer):
             self.display_mesh_on_images()
 
 
-    def allign_by_procrustes(self):
+    def allign_by_procrustes(self, window=None):
 
         # Set/Reset to 0
         self.action_frame_index = [0]
@@ -230,6 +230,31 @@ class SharedVertexOptimizer(BaseOptimizer):
             # Get the 3D points for the template
 
             # Do the procrustes
+
+        # TODO: Procrustes is not the problem itself if smoothed
+        # todo: check that we are in time mode, check that action keyframes are long enough
+        if window is not None:
+            global_t = smooth(global_t, window=window)
+
+            rots = R.from_rotvec(global_R.reshape(-1, 3))
+
+            smoothed_rots = [rots[0]]  # initialize with first frame
+            alpha = 0.2  # smoothing factor (0 = very smooth, 1 = no smoothing)
+
+            for i in range(1, len(rots)):
+                prev = smoothed_rots[-1]
+                curr = rots[i]
+
+                key_times = [0, 1]
+                key_rots = R.concatenate([prev, curr])
+
+                slerp = Slerp(key_times, key_rots)
+
+                smoothed = slerp([alpha])[0]  # interpolate toward current
+                smoothed_rots.append(smoothed)
+
+            global_R = R.concatenate(smoothed_rots).as_rotvec().reshape(-1, 1, 3)
+
 
         self.global_t = torch.from_numpy(global_t).float().to(self.device).requires_grad_(True)
         self.global_orientation = torch.from_numpy(global_R).float().to(self.device).requires_grad_(True)

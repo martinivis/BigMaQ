@@ -115,9 +115,9 @@ def main():
 
 
     cam_approach = 0
-    small_change_note = f"EntireSetOpt{time_scalar:.3f}_OnlyJointLimits"
+    small_change_note = f"EntireSetOpt{time_scalar:.3f}_complete_overlap"
     # Save time by not rendering all the time
-    epoch_render_mod = 10
+    epoch_render_mod = 10 #todo: increase for test run
     render_video = True
     # Take all individuals
     nb_ind_actions = 3

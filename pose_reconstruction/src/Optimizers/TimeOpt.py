@@ -82,12 +82,19 @@ class TimeOptimizer(SharedVertexOptimizer):
         # with 16 cameras just 4 frames at a time? see how a reduction to 256x256 would work
 
 
+        #todo: either add a time wise loss after the individual batches?
+
+
         # for 4 cameras
         self.batch_size = 80
 
+        # Number of batches to include before gradient step, if memory issues, reduce this number,
+        # at batch_size*accum_steps to jumps due to the trajectory of the optimizer
+        self.accum_steps = 8
+
 
         # The overlap determines the breaks...
-        self.overlap = 10 # to reduce a little bit errors?
+        self.overlap = int(0*self.batch_size) # to reduce a little bit errors?
 
         # List of sublist of frames to iterate, for rendering and optimization
         self.minibatches_to_iterate = []
@@ -407,7 +414,13 @@ class TimeOptimizer(SharedVertexOptimizer):
     def load_individual_fits_parameters(self):
         # Init the model parameters
         self.init_model_params()
-        self.allign_by_procrustes()
+
+        # Smooth the procrustes a little
+        window = 5
+        if len(self.action_and_keyframes) < window:
+            window = None
+        self.allign_by_procrustes(window=window)
+
         # Load parts of the values from previous fits for that particular individual
         self.assign_partial_loaded_parameters()
         self.assign_dict_to_model_parameters()
@@ -547,11 +560,8 @@ class TimeOptimizer(SharedVertexOptimizer):
                                                                    f"Epochs")
 
 
-
-
         #with profile(use_cuda=True, with_stack=True) as prof:
         #print(self.ANGLE_WEIGHTING)
-
 
 
         # Epoch means how many times over the frames of the action
@@ -564,41 +574,58 @@ class TimeOptimizer(SharedVertexOptimizer):
             #if rem == 0:
 
 
-
+            self.body_optimizer.zero_grad()
 
             for batch_idx, batch in enumerate(self.minibatches_to_iterate):
                 self.iter = iter_index
                 self.batch_loss = 0
                 self.batch_idx = batch_idx
-                for minibatch_idx, frames in enumerate(batch):
-                    # Update the frame
-                    self.bundled_frames = frames
 
-                    # Change the cameras to retain for the respective frames
+                for minibatch_idx, frames in enumerate(batch):
+                    self.bundled_frames = frames
                     self.set_active_cameras_per_frames()
                     self.action_frame_index = [x - self.start_frame for x in frames]
-                    # Update action index, which is here just the frame itself as index
-                    #self.action_frame_index = self.frame - self.start_frame
+
                     self.__pose_mesh__()
-
-
-                    # This is the most expensive step time-wise
                     self.__cam_loop__()
+
                     self.batch_loss += self.loss
                     self.flattened_idx += 1
 
-                if self.nb_workers == 1 and self.worker == -1:
-                    utils.print_cuda_memory_stats(device=self.device)
-                # Update the parameters
-                self.body_optimizer.zero_grad()
+                self.batch_loss = self.batch_loss / self.accum_steps
                 self.batch_loss.backward()
+
+                epoch_loss += self.batch_loss.item()
+                iter_index += 1
+
+                if (batch_idx + 1) % self.accum_steps == 0:
+                    ret = self.check_gradients()
+                    if not ret:
+                        self.grad_ok = ret
+
+                    self.body_optimizer.step()
+                    self.body_optimizer.zero_grad()
+
+
+            remaining = len(self.minibatches_to_iterate) % self.accum_steps
+            if remaining != 0:
+                correction = self.accum_steps / remaining
+
+                for param_group in self.body_optimizer.param_groups:
+                    for param in param_group["params"]:
+                        if param.grad is not None:
+                            param.grad.mul_(correction)
+
                 ret = self.check_gradients()
                 if not ret:
                     self.grad_ok = ret
+
                 self.body_optimizer.step()
-                epoch_loss += self.batch_loss.item()
-                # Afterward gradient update
-                iter_index += 1
+                self.body_optimizer.zero_grad()
+
+
+
+
             if self.epoch % self.epoch_render_mod == 0:
                 self.render_parameters()
             lr_s_cur = []
@@ -804,8 +831,16 @@ class TimeOptimizer(SharedVertexOptimizer):
 
 
         # 499 is displacement
-
         idx = self.action_loader.dataset.index[self.action_loader.dataset["Unnamed: 0"] == 499][0]
+
+        # 145 is eating to check for procrustes smoothness
+        #idx = self.action_loader.dataset.index[self.action_loader.dataset["Unnamed: 0"] == 145][0]
+
+        # 761 long temporal action, three individuals
+        idx = self.action_loader.dataset.index[self.action_loader.dataset["Unnamed: 0"] == 761][0]
+
+        # 438 long temporal action
+        idx = self.action_loader.dataset.index[self.action_loader.dataset["Unnamed: 0"] == 438][0]
 
         action_indices_to_iterate = [idx]
 

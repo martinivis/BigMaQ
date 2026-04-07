@@ -24,6 +24,14 @@ def print_cuda_memory_stats(device=0, prefix=""):
     print(f"{prefix} memory_allocated: {allocated / (1024**2):.2f} MB")
     print(f"{prefix} memory_reserved : {reserved / (1024**2):.2f} MB")
 
+def smooth(x, window=5):
+    out = np.copy(x)
+    for i in range(len(x)):
+        start = max(0, i - window)
+        end = min(len(x), i + window + 1)
+        out[i] = np.mean(x[start:end], axis=0)
+    return out
+
 def convert_tensor_to_numpy(image):
     if isinstance(image, torch.Tensor):
         # Move to CPU and convert to NumPy
