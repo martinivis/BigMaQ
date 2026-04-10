@@ -10,7 +10,7 @@ def parse_args():
         description="Run macaque optimization with configurable CLI flags."
     )
 
-    p.add_argument("--nb-cameras", type=int, default=6,
+    p.add_argument("--nb-cameras", type=int, default=4,
                    help="How many cameras to retain in optimization (1-16).")
     p.add_argument("--render-col", action="store_true", default=False,
                    help="Render in colors.")
@@ -90,7 +90,7 @@ def main():
     debug = False
     nb_ind_actions = 6
 
-    hard_drive_loc = r"/media/lucas/W-2/BigMaQ"
+    hard_drive_loc = r"/media/lucas/X-2/BigMaQ"
 
     path_to_dataset = join(hard_drive_loc, "dataset_overview.csv")
 
@@ -99,6 +99,9 @@ def main():
                                          device=device, max_image_size=max_img_size, labels_only=labels_only, debug=debug,
                                  high_poly=high_poly, force_action_reload=force_action_reload, same_size=squared_images,
                                  hard_drive_loc=hard_drive_loc)
+
+    action_loader.disable_saving = False
+
     action_loader.project_root = project_root
     # Create the mesh model
     mesh_model = MeshModel(mesh=path_to_mesh, device=device)
@@ -113,11 +116,12 @@ def main():
     use_bbox_conf = True
     # time scalar
 
+    use_base_line = True
 
     cam_approach = 0
-    small_change_note = f"EntireSetOpt{time_scalar:.3f}_complete_overlap"
+    small_change_note = f"EntireSetOpt{time_scalar:.3f}_complete_overlap_flow_mvtrack_basedist_{action_loader.min_cams_cross_view}_{use_base_line}"
     # Save time by not rendering all the time
-    epoch_render_mod = 10 #todo: increase for test run
+    epoch_render_mod = 100 #todo: increase for test run, MLCLUSTER
     render_video = True
     # Take all individuals
     nb_ind_actions = 3
@@ -128,7 +132,7 @@ def main():
                                    nb_ind_actions=nb_ind_actions, nb_cameras=nb_cameras, use_kp_conf=use_kp_conf,
                                    use_bbox_conf=use_bbox_conf, changes_string=changes_string,
                                    epoch_render_mod=epoch_render_mod, cam_approach=cam_approach, mini_batch_size=mini_batch_size,
-                                   nb_workers=nb_workers)
+                                   nb_workers=nb_workers, baselines=use_base_line)
     time_optimizer.selection_scalar = time_scalar
 
 

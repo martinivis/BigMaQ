@@ -44,6 +44,7 @@ def get_camera_vertices(dim=2, asp=2464/2056):
     return vertices_camera
 
 
+
 def powerset(iterable, min_nb_triangulation = 2, max_set = 0):
 
     s = list(iterable)

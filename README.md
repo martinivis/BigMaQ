@@ -31,3 +31,16 @@
   - 1/7 GB for masks of entire video size
   - a little more for yolo crops
   - ---> try to get the images out of the videos
+
+
+- installing pictorial:
+- source /path/to/venv/bin/activate
+cd /path/to/pictorial_package
+python -m pip install cython numpy
+python setup.py build_ext --inplace
+python -m pip install -e .
+
+
+TODOS general:
+- restart if sequence is lost as there are not 6 views available
+- 

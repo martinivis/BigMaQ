@@ -355,6 +355,7 @@ def split_into_minibatches(list_of_lists, minibatch_size):
 
     return result
 
+from pose_reconstruction.src.utils.CrossViewMatching import MultiEstimator
 
 class ActionLoader():
     """
@@ -425,6 +426,7 @@ class ActionLoader():
         self.rgbs = {}
 
 
+
         # CameraObjects from Cameras class
         self.big_cams = Cameras()
         # Vertex info, symmetries etc. as a dictionary
@@ -484,6 +486,23 @@ class ActionLoader():
 
         # Get the undistort maps
         self.undistort_maps = {}
+
+
+        ### Multi-view alignment code
+        # TODO: put the config into config files
+        self.multiview_model_cfg = {'joint_num': self.nb_markers, 'spectral': True, 'alpha_SVT': 0.5,
+                 'lambda_SVT': 50, 'dual_stochastic_SVT': False, }
+        self.multiview_estimator = MultiEstimator(cfg=self.multiview_model_cfg)
+
+
+        ### The association matrix
+
+        self.association_matrix = None
+        self.min_cams_cross_view = 4
+
+        ## Cluster specific
+        self.disable_saving = True
+
 
 
     def write_trckingdata_to_pickle(self):
@@ -1126,6 +1145,10 @@ class ActionLoader():
         cropped_camera = conversion_opencv_pytorch(cam.R, cam.t, cropped_K, im_size_array, device=self.device)
 
         return cropped_camera
+
+
+
+
     def get_uncropped_labels_per_frame(self, manual=False):
 
 
@@ -1205,6 +1228,8 @@ class ActionLoader():
 
 
 
+                        #todo: save the bbox coordinates? of the undistorted bbox. as well as undistored 2d keypoints
+
                         ### Masks, and rgb assignment
                         mask_p_i[ind], scale_factor, rgb_p_i[ind], undist_bbox, undist_2d_kp, kp_2d_uncropped = (
                             self.get_undistorted_labels(cam_key, bbox, unaligned_frame, first_letter_ind, kps_2d_det,
@@ -1279,12 +1304,16 @@ class ActionLoader():
 
             ### Update the objects entries
             self.keypoints_2d[frame] = kp_2d_p_c[frame]
+
             self.keypoints_3d[frame] = kp_3d_ind
             self.keypoints_conf[frame] = kp_2d_conf_p_c[frame]
             self.masks[frame] = mask_p_c[frame]
             self.pytorch_cameras[frame] = cams_p_c[frame]
             self.probs_ratings[frame] = prob_ratings_p_c[frame]
             self.rgbs[frame] = rgb_p_c[frame]
+
+            # add uncropped kp2d
+
 
     def update_tracking_data(self):
         """
@@ -1451,7 +1480,9 @@ class ActionLoader():
 
                 self.entire_labeled_data[action_index] = action_labels_dict
 
-                self.write_trckingdata_to_pickle()
+                # TODO: disable saving it for the cluster
+                if not self.disable_saving:
+                    self.write_trckingdata_to_pickle()
 
 
 
@@ -1845,5 +1876,238 @@ class ActionLoader():
 
         with open(join(self.export_explicit, "new_cam.pkl"), 'wb') as outfile:
             pickle.dump(self.export_cameras_small, outfile)
+
+
+
+    def generate_tracking_labels(self):
+
+        frames_to_iter = range(self.min_frames_action)
+
+        T = []
+
+        for cam_key_index, cam_key in tqdm(enumerate(self.available_videos.keys())):
+
+
+            per_cam_results = []
+
+            for frame in frames_to_iter:
+                unaligned_frame = frame + int(self.additive_frames_cam[cam_key]) - self.min_frames_action
+
+                per_frame_results = []
+
+                for ind_index, ind in enumerate(self.individuals):
+                    first_letter_ind = ind[0]
+
+
+                    ind_results = self.crop_data_action[cam_key][unaligned_frame][
+                        first_letter_ind]
+
+                    if len(ind_results) == 3:
+                        continue
+
+                    # Get the cropping information from YOLO, #todo: ind_id is the label within the 8 individuals themselves
+                    bbox, ind_id, bbox_conf, kps_2d_det, kps_2d_conf = ind_results
+
+                    ### Only append if there is something detected
+
+                    # TODO: bbox id is basically the ind index for the given action labels HJL f.ex.
+                    per_ind_results = [ind_index]
+                    per_ind_results.extend(bbox)
+
+
+                    # kps2d are from cropped parameters
+                    kps2d = np.array(kps_2d_det)
+
+                    kps2d_uncropped = kps2d + bbox[:2]
+
+                    kp2d_conf = np.array(kps_2d_conf)
+                    kp2d_conf = np.expand_dims(kps_2d_conf, axis=-1)
+
+                    kps2d_uncropped = np.hstack((kps2d_uncropped, kp2d_conf)).tolist()
+                    # match them with hstack
+                    # back to list
+
+                    per_ind_results.append(kps2d_uncropped)
+                    per_ind_results.append(int(ind_id))
+                    per_ind_results.append(bbox_conf)
+
+                    # Cam key cause a little easier for further processing
+                    per_ind_results.append(cam_key)
+
+                    per_frame_results.append(per_ind_results)
+
+                per_cam_results.append(per_frame_results)
+
+            T.append(per_cam_results)
+
+        return T
+
+    def proc_cross_view_matching(self):
+
+        ### Interpreting the results of bcomb: index of value is camera in cam ID list, bbox id where no detection is -1
+        self.association_matrix = np.zeros(shape=(len(self.individuals), self.min_frames_action,
+                                                  len(self.big_cams.cam_dict)))
+
+
+
+
+        # Make the camera parameters in the correct format of multi-view estimator? yes
+        # Camera IDS
+        ID = list(self.available_videos.keys())
+
+        # Ts which is? IDK
+        # List (nb_cameras) of list (nb_frames), list(
+
+
+        alignment_path = join(self.action_path, "mult_align.pkl")
+
+        if not os.path.exists(alignment_path):
+            T = self.generate_tracking_labels()
+
+            # filling the data works, but the cid and tt[0] are a bit hard to understand, more research necessary
+
+
+                # Per camera it is frames, detected individuals
+
+
+            # ID of2dtrack
+            # framenumbers
+            n_cam = len(ID)
+            n_frame = len(T[0])
+
+
+            # Iterate sparse frames
+            result_keyframe = []
+            bcomb_prev = []
+            #for i_frame in tqdm(range(1, n_frame - 12, 12)):
+            for i_frame in tqdm(range(n_frame)):
+                info_dict = {}
+                for i_cam in range(n_cam):
+
+                    img = []
+
+                    TT = T[i_cam][i_frame]
+
+                    P = []
+                    for tt in TT:
+                        # tt[6] is predicted individual
+
+
+                        bbox_id = [i_cam,
+                                   tt[0]]  # first the camera id, tt[0] is track id, tt[6] pred label, tt[7] pred_score
+                        bbox = tt[1:5]  # bbox coordinates
+                        #cid = Cid[i_cam][tt[0]][i_frame]  # temporally smoothed individual ID label
+                        cid = -1 #tt[0] #todo: TEST with -1 and tt[0] for differences
+                        pose2d_raw = np.array(tt[5])  # pose2d
+
+
+                        cam_key = tt[8]
+
+                        # Undistort the points
+                        cam = self.big_cams.cam_dict[cam_key]
+
+                        pts = np.ascontiguousarray(pose2d_raw[:, :2], dtype=np.float64)
+                        pose2d = cv2.undistortPoints(pts, cam.K, cam.d)
+                        pose2d = pose2d.squeeze()
+                        #pose2d = undistort_points(config_path, i_cam, pose2d_raw[:, :2])  # pose2d undistorted
+
+                        # 'cid' becomes -1
+
+                        P.append({'pose2d': pose2d, 'pose2d_raw': pose2d_raw, 'bbox': bbox, 'bbox_id': bbox_id, 'cid': cid})
+
+                    info_dict[i_cam] = {'image_data': img, 0: P}
+
+                # Build the camera parameters
+
+                camparam = {}
+
+                # Just appending across ID
+                K = []
+                #xi = []
+                D = []
+                rvecs = []
+                tvecs = []
+                pmat = []
+                camera_ids = []
+
+                for cam_id_index, cam_id in enumerate(ID):
+
+                    cam = self.big_cams.cam_dict[cam_id]
+
+                    K.append(cam.K)
+                    D.append(cam.d)
+
+                    rvecs.append(cam.r)
+                    tvecs.append(cam.t)
+
+                    rmatx, _ = cv2.Rodrigues(cam.r)
+                    P = np.hstack([rmatx, cam.t])
+
+                    pmat.append(P)
+
+                    camera_ids.append(cam_id)
+
+                camparam['K'] = K
+                camparam['D'] = D
+                camparam['rvecs'] = rvecs
+                camparam['tvecs'] = tvecs
+                camparam['pmat'] = pmat
+                camparam['camera_id'] = camera_ids
+
+
+                # Per frame basically
+                matched_list, pose3d, bcomb = self.multiview_estimator.predict_data(info_dict, show=False, plt_id=0,
+                                                                                    camparam=camparam,
+                                                                      bcomb_prev=bcomb_prev)
+
+                bcomb_prev = bcomb
+
+                result_keyframe.append({'frame': i_frame, 'bcomb': bcomb, 'pose3d': pose3d})
+
+            with open(alignment_path, "wb") as f:
+                pickle.dump(result_keyframe, f)
+
+        else:
+            with open(alignment_path, "rb") as f:
+                result_keyframe = pickle.load(f)
+
+
+
+
+        self.majority_association_matrix = np.zeros_like(self.association_matrix)
+
+        for i_frame in tqdm(range(self.min_frames_action)):
+
+            bcomb = result_keyframe[i_frame]['bcomb']
+
+            # Ind index is the individual in the matrix
+            for ind_index, ind in enumerate(self.individuals):
+
+
+                size_ids_bcomb = []
+
+                for m_tracklet_index, m_tracklet in enumerate(bcomb):
+
+                    # Get the individual in the mtracklet
+                    # If more than min_cams accept it
+
+                    # cameras where this individual appears
+                    cam_idx = np.where(m_tracklet == ind_index)[0]
+
+                    size_ids_bcomb.append(cam_idx.size)
+
+                    # check if enough cameras agree
+                    if cam_idx.size >= self.min_cams_cross_view:
+                        self.association_matrix[ind_index, i_frame, cam_idx] = 1
+
+                size_ids_bcomb = np.array(size_ids_bcomb)
+                max_tracklet_per_ind = np.argmax(size_ids_bcomb)
+                max_tracklet = bcomb[max_tracklet_per_ind]
+                cam_idx = np.where(max_tracklet == ind_index)[0]
+                self.majority_association_matrix[ind_index, i_frame, cam_idx] = 1
+                # Get the ids and save them
+
+
+
 
 

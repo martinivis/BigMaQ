@@ -17,6 +17,7 @@ import pose_reconstruction.src.utils.utils as utils
 import time
 from pytorch3d.renderer.cameras import PerspectiveCameras
 from pose_reconstruction.src.utils.LBS import MeshModel
+import itertools
 
 
 
@@ -24,7 +25,7 @@ from pose_reconstruction.src.utils.LBS import MeshModel
 class TimeOptimizer(SharedVertexOptimizer):
     def __init__(self, device, mesh_model, action_loader: ActionLoader, cameras_to_retain, CROP, verbose, debug,
                  nb_ind_actions, nb_cameras, use_kp_conf=True, use_bbox_conf=True, changes_string="", image_scale=4,
-                 hand_weight=1, tail_weight=0, epoch_render_mod=50, cam_approach=0, mini_batch_size=1, nb_workers=1,
+                 hand_weight=1, tail_weight=0, epoch_render_mod=50, cam_approach=0, mini_batch_size=1, nb_workers=1, baselines=True,
                  **kwargs):
         super().__init__(device=device, mesh_model=mesh_model, action_loader=action_loader,
                          cameras_to_retain=cameras_to_retain, CROP=CROP, verbose=verbose, debug=debug,
@@ -52,6 +53,8 @@ class TimeOptimizer(SharedVertexOptimizer):
 
         self.camera_selection_matrix = None
 
+        # Use baselines for selection
+        self.baseline_usage = baselines
 
         # Individual save path
         self.ind_params_path = None
@@ -82,15 +85,13 @@ class TimeOptimizer(SharedVertexOptimizer):
         # with 16 cameras just 4 frames at a time? see how a reduction to 256x256 would work
 
 
-        #todo: either add a time wise loss after the individual batches?
 
-
-        # for 4 cameras
-        self.batch_size = 80
+        # for 4 cameras, if too big the second individual doesnt fit somehow
+        self.batch_size = 20
 
         # Number of batches to include before gradient step, if memory issues, reduce this number,
         # at batch_size*accum_steps to jumps due to the trajectory of the optimizer
-        self.accum_steps = 8
+        self.accum_steps = 32
 
 
         # The overlap determines the breaks...
@@ -100,6 +101,8 @@ class TimeOptimizer(SharedVertexOptimizer):
         self.minibatches_to_iterate = []
 
         #self.mod_iter_show
+
+
 
 
 
@@ -178,6 +181,38 @@ class TimeOptimizer(SharedVertexOptimizer):
         else:
             warnings.warn(f"The set of parameters could lead to memory issues: {ref_val}")
 
+    def overall_baseline_score(self, camera_indices, camera_keys):
+        centers = []
+        for idx in camera_indices:
+            cam_key = camera_keys[idx]
+            #cam = self.[cam_key]
+
+            camera_in_world = self.action_loader.big_cams.get_camera_in_world(cam_key)
+            centers.append(camera_in_world.ravel())
+
+        score = 0.0
+        for i, j in itertools.combinations(range(len(centers)), 2):
+            score += np.linalg.norm(centers[i] - centers[j])
+
+        return score
+
+    def incremental_baseline_gain(self, selected_indices, candidate_idx, camera_keys):
+        if len(selected_indices) == 0:
+            return 0.0
+
+        cand_key = camera_keys[candidate_idx]
+        cand_center = self.action_loader.big_cams.get_camera_in_world(cand_key).ravel()
+
+        gain = 0.0
+        for idx in selected_indices:
+            cam_key = camera_keys[idx]
+            center = self.action_loader.big_cams.get_camera_in_world(cam_key).ravel()
+            gain += np.linalg.norm(center - cand_center)
+
+        return gain
+
+
+
     def sparse_mixed_camera_selection(self, export_path=None):
         """
 
@@ -188,10 +223,19 @@ class TimeOptimizer(SharedVertexOptimizer):
         # This goes rather frame-wise and checks for available cameras until max number cameras is reached
         # If one camera is gone, try to substitute that camera until max cameras is reached
 
+
+        ### Current implementation: take the longest initial sequences, take largest 10 cameras, from these take the largest baseline
+        # then fill by a pool of the largest cameras for start and with long sequences
+
+        # TODO: current question is a bit why not use the 3d pose by checking with triangulation subsets,
+        #  reproject and filter out wrong detections? see what this would look like..
+
         # cur individual index
         cur_ind_idx = self.action_loader.individuals.index(self.cur_ind)
 
-        camera_frame_matrix = self.action_loader.tracking_chk_sum[cur_ind_idx, :, :]
+        #camera_frame_matrix = self.action_loader.tracking_chk_sum[cur_ind_idx, :, :]
+        camera_frame_matrix = self.action_loader.association_matrix[cur_ind_idx, :, :]
+
 
         num_frames, num_cameras = camera_frame_matrix.shape
 
@@ -201,6 +245,41 @@ class TimeOptimizer(SharedVertexOptimizer):
         # Sort cameras by track length (descending order)
         sorted_cameras = np.argsort(nb_dets)[::-1]
 
+
+        ### Idea: lange sequenz und majority wird geused
+        cam_seq_start_length = np.zeros(camera_frame_matrix.shape[1])
+        for cam_idx in range(camera_frame_matrix.shape[1]):
+
+            cam_seq = camera_frame_matrix[:, cam_idx]
+
+            zero_occ = (cam_seq == 0)
+
+            if np.sum(zero_occ) == 0:
+                cam_seq_start_length[cam_idx] = camera_frame_matrix.shape[0]
+            else:
+                first_zero = np.argmax(cam_seq == 0)
+                cam_seq_start_length[cam_idx] = first_zero
+
+
+        ### Now take of these cam seq start length the top
+        cams_to_consider_baseline = 8
+        cams_to_take = cams_to_consider_baseline if self.nb_cameras < cams_to_consider_baseline else self.nb_cameras
+
+        # Sort cameras by track length (descending order)
+        sorted_cameras_start = np.argsort(cam_seq_start_length)[::-1][:cams_to_take]
+        sorted_cameras_overall_subset = sorted_cameras[:cams_to_take]
+
+        if self.baseline_usage:
+            best_subset = None
+            best_score = -np.inf
+
+            ID = list(self.action_loader.available_videos.keys())
+
+            for subset in itertools.combinations(sorted_cameras_start, self.nb_cameras):
+                score = self.overall_baseline_score(subset, ID)
+                if score > best_score:
+                    best_score = score
+                    best_subset = subset
 
 
         # Iterate the sorted cameras and check if the first frame is valid, if yes, this camera is the initial set
@@ -222,38 +301,98 @@ class TimeOptimizer(SharedVertexOptimizer):
 
                 if frame == 0:
                     # No previous frame available, just select the ones in order of sorted cameras until full
-                    for sorted_cam in sorted_cameras:
-                        if camera_frame_matrix[frame, sorted_cam]:
-                            camera_selection_matrix[frame, sorted_cam] = 1
 
-                        if camera_selection_matrix[frame, :].sum() == self.nb_cameras:
-                            break
+
+                    if self.baseline_usage:
+                        camera_selection_matrix[0, list(best_subset)] = 1
+
+                    else:
+                        # Change from sorted cameras to sorted cameras start
+                        for sorted_cam in sorted_cameras:
+
+                            # Check if it is filled with a sorted cam
+                            if camera_frame_matrix[frame, sorted_cam]:
+
+                                # Check if it is in the majority of the first frame
+                                if self.action_loader.majority_association_matrix[cur_ind_idx, frame, sorted_cam]:
+                                    camera_selection_matrix[frame, sorted_cam] = 1
+
+
+                            if camera_selection_matrix[frame, :].sum() == self.nb_cameras:
+                                break
 
                 else:
-                    # Get previous active cameras
-                    prev_act_cameras = np.argwhere(camera_selection_matrix[frame-1, :] == 1)
 
+
+                    # Get previous active cameras
+                    prev_act_cameras = np.flatnonzero(camera_selection_matrix[frame - 1, :] == 1)
+
+
+                    # Take the ones from before
                     for prev_act_camera in prev_act_cameras:
                         if camera_frame_matrix[frame, prev_act_camera] == 1:
                             camera_selection_matrix[frame, prev_act_camera] = 1
 
+
                     # If not full set in the new frame, fill by others
                     if camera_selection_matrix[frame, :].sum() < self.nb_cameras:
 
-                        # Break at the earliest incidence of change of cameras
-                        # Fill with other cameras from sorted
+                        current_selected = list(np.flatnonzero(camera_selection_matrix[frame, :] == 1))
 
-                        # If exporting, then just break at the earliest incidence
-                        if export_path is not None:
-                            break
+                        if self.baseline_usage:
+
+                            preferred_pool = list(sorted_cameras_overall_subset) # list(dict.fromkeys())
+
+                            available_candidates = [
+                                cam_idx for cam_idx in preferred_pool
+                                if cam_idx not in current_selected and camera_frame_matrix[frame, cam_idx] == 1
+                            ]
+
+                            # relax if preferred pool is not enough
+                            if len(current_selected) + len(available_candidates) < self.nb_cameras:
+                                available_candidates = [
+                                    cam_idx for cam_idx in range(num_cameras)
+                                    if cam_idx not in current_selected and camera_frame_matrix[frame, cam_idx] == 1
+                                ]
+
+
+                            ID = list(self.action_loader.available_videos.keys())
+
+                            while len(current_selected) < self.nb_cameras and len(available_candidates) > 0:
+                                best_cam = None
+                                best_gain = -np.inf
+
+                                for cand in available_candidates:
+                                    gain = self.incremental_baseline_gain(current_selected, cand, ID)
+
+                                    if gain > best_gain:
+                                        best_gain = gain
+                                        best_cam = cand
+
+                                if best_cam is None:
+                                    break
+
+                                camera_selection_matrix[frame, best_cam] = 1
+                                current_selected.append(best_cam)
+                                available_candidates.remove(best_cam)
+
+
                         else:
-                            pass
 
-                        for sorted_cam in sorted_cameras:
-                            if sorted_cam not in prev_act_cameras and camera_frame_matrix[frame, sorted_cam]:
-                                camera_selection_matrix[frame, sorted_cam] = 1
-                            if camera_selection_matrix[frame, :].sum() == self.nb_cameras:
+                            # Break at the earliest incidence of change of cameras
+                            # Fill with other cameras from sorted
+
+                            # If exporting, then just break at the earliest incidence
+                            if export_path is not None:
                                 break
+                            else:
+                                pass
+
+                            for sorted_cam in sorted_cameras:
+                                if sorted_cam not in prev_act_cameras and camera_frame_matrix[frame, sorted_cam]:
+                                    camera_selection_matrix[frame, sorted_cam] = 1
+                                if camera_selection_matrix[frame, :].sum() == self.nb_cameras:
+                                    break
 
 
         elif self.cam_approach:
@@ -837,10 +976,13 @@ class TimeOptimizer(SharedVertexOptimizer):
         #idx = self.action_loader.dataset.index[self.action_loader.dataset["Unnamed: 0"] == 145][0]
 
         # 761 long temporal action, three individuals
-        idx = self.action_loader.dataset.index[self.action_loader.dataset["Unnamed: 0"] == 761][0]
+        #idx = self.action_loader.dataset.index[self.action_loader.dataset["Unnamed: 0"] == 761][0]
 
-        # 438 long temporal action
-        idx = self.action_loader.dataset.index[self.action_loader.dataset["Unnamed: 0"] == 438][0]
+        # 438
+        #idx = self.action_loader.dataset.index[self.action_loader.dataset["Unnamed: 0"] == 438][0]
+
+        # Failure case with 3 individuals
+        idx = self.action_loader.dataset.index[self.action_loader.dataset["Unnamed: 0"] == 643][0]
 
         action_indices_to_iterate = [idx]
 
@@ -875,6 +1017,9 @@ class TimeOptimizer(SharedVertexOptimizer):
 
             print("Loading action: ", self.action_loader.action_path)
 
+
+            ### Solve the alignment of multiple animals here
+            self.action_loader.proc_cross_view_matching()
 
 
             for ind_index, ind in enumerate(self.action_loader.unique_individuals):
