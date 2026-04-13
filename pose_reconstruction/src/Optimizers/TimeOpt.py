@@ -256,6 +256,8 @@ class TimeOptimizer(SharedVertexOptimizer):
 
             if np.sum(zero_occ) == 0:
                 cam_seq_start_length[cam_idx] = camera_frame_matrix.shape[0]
+            elif np.sum(zero_occ) == self.action_loader.min_frames_action:
+                cam_seq_start_length[cam_idx] = 0
             else:
                 first_zero = np.argmax(cam_seq == 0)
                 cam_seq_start_length[cam_idx] = first_zero
@@ -304,7 +306,28 @@ class TimeOptimizer(SharedVertexOptimizer):
 
 
                     if self.baseline_usage:
-                        camera_selection_matrix[0, list(best_subset)] = 1
+
+                        seed_cams = list(best_subset) if best_subset is not None else []
+                        candidate_order = list(dict.fromkeys(seed_cams + list(sorted_cameras)))
+
+                        for b_cam in candidate_order:
+                            if camera_frame_matrix[frame, b_cam]:
+                                camera_selection_matrix[frame, b_cam] = 1
+
+                            if camera_selection_matrix[frame, :].sum() == self.nb_cameras:
+                                break
+
+                        #
+                        # for b_cam in list(best_subset) + sorted_cameras:
+                        #
+                        #     # Checks if the camera does have a valid detection!
+                        #     if camera_frame_matrix[frame, b_cam]:
+                        #
+                        #         camera_selection_matrix[0, b_cam] = 1
+                        #
+                        #     # If insufficient, fill with sorted cameras
+                        #     if camera_selection_matrix[frame, :].sum() == self.nb_cameras:
+                        #         break
 
                     else:
                         # Change from sorted cameras to sorted cameras start
@@ -976,13 +999,16 @@ class TimeOptimizer(SharedVertexOptimizer):
         #idx = self.action_loader.dataset.index[self.action_loader.dataset["Unnamed: 0"] == 145][0]
 
         # 761 long temporal action, three individuals
-        #idx = self.action_loader.dataset.index[self.action_loader.dataset["Unnamed: 0"] == 761][0]
+        idx = self.action_loader.dataset.index[self.action_loader.dataset["Unnamed: 0"] == 761][0]
 
         # 438
         #idx = self.action_loader.dataset.index[self.action_loader.dataset["Unnamed: 0"] == 438][0]
 
         # Failure case with 3 individuals
-        idx = self.action_loader.dataset.index[self.action_loader.dataset["Unnamed: 0"] == 643][0]
+        #idx = self.action_loader.dataset.index[self.action_loader.dataset["Unnamed: 0"] == 643][0]
+
+        # Failure case with 3 individuals,
+        #idx = self.action_loader.dataset.index[self.action_loader.dataset["Unnamed: 0"] == 473][0]
 
         action_indices_to_iterate = [idx]
 
@@ -1023,6 +1049,10 @@ class TimeOptimizer(SharedVertexOptimizer):
 
 
             for ind_index, ind in enumerate(self.action_loader.unique_individuals):
+
+                # if ind != 'L':
+                #     continue
+
                 self.cur_ind = ind
 
                 if self.action_loader.high_poly:

@@ -10,7 +10,7 @@ def parse_args():
         description="Run macaque optimization with configurable CLI flags."
     )
 
-    p.add_argument("--nb-cameras", type=int, default=4,
+    p.add_argument("--nb-cameras", type=int, default=6,
                    help="How many cameras to retain in optimization (1-16).")
     p.add_argument("--render-col", action="store_true", default=False,
                    help="Render in colors.")
@@ -119,7 +119,7 @@ def main():
     use_base_line = True
 
     cam_approach = 0
-    small_change_note = f"EntireSetOpt{time_scalar:.3f}_complete_overlap_flow_mvtrack_basedist_{action_loader.min_cams_cross_view}_{use_base_line}"
+    small_change_note = f"EntireSetOpt{time_scalar:.3f}_complete_overlap_flow_mvtrack_basedist_{action_loader.min_cams_cross_view}_{use_base_line}_large_T"
     # Save time by not rendering all the time
     epoch_render_mod = 100 #todo: increase for test run, MLCLUSTER
     render_video = True

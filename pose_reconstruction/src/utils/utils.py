@@ -164,7 +164,12 @@ def images_to_video(
         if f.lower().endswith(('.png', '.jpg', '.jpeg'))
     ]
 
-    file_list = [f for f in file_list if ind in f]
+    #file_list = [f for f in file_list if ind in f]
+    file_list = [
+        f for f in file_list
+        if f"_{ind}_" in f
+    ]
+
 
     if not file_list:
         raise ValueError(f"No valid images found in folder: {images_folder}")
