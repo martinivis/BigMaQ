@@ -62,7 +62,7 @@ flags = {
     "global_inf":    [False],  # Reduced because not necessary
     "use_pose":      [False, True],
     "add_feat":      [False], # Additive features doesn't work for the 2 MLP encodings, hence concat the representations
-    "use_vis":       [False, True],
+    "use_vis":       [False],
     "ws":           [0.5]
 }
 
@@ -102,10 +102,7 @@ model_dim_D = 256
 n_heads = 8
 n_layers = 2 # before this was 8
 
-#todo: maybe run 20 epochs with best epoch
-# todo: add crossval for pose trainings
 
-# todo: use more cameras as of view 1
 
 #testing
 #model_dim_D = 32
@@ -139,7 +136,7 @@ model_name = model_activations[model_idx]
 
 # Bottleneck of training is likely just the disk retrieval!, for less features way faster
 
-# Skip the pose run, todo: incorporate this into the model loop that after resnet this is set to True
+# Skip the pose run,
 skip_pose_run=False
 
 # to return to faster training, unmount and mount and restart pycharm
@@ -275,7 +272,6 @@ for SA, GI, UP, AF, UV, WO in all_runs:
             ).to(device)
 
 
-            # TODO: maybe without this pos weight
             if cls_reweight:
                 criterion = nn.BCEWithLogitsLoss(pos_weight=train_ds.pos_weight.to(device=device))
             else:

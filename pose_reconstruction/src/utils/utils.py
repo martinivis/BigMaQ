@@ -1,4 +1,6 @@
 import os
+import shutil
+
 import torch
 import numpy as np
 import cv2
@@ -216,14 +218,24 @@ def images_to_video(
 
     #print(f"Video saved as {output_filename}")
 
-def create_videos(render_path, cameras, ind):
+def create_videos(render_path, cameras, ind, action_index, copy_path=None):
 
 
     for cam in cameras:
 
         cam_path = join(render_path, str(cam).zfill(2))
 
-        images_to_video(cam_path, f"{ind}_{cam}.mp4", ind=ind)
+        vid_id = f"{action_index}_{ind}_{cam}.mp4"
+
+        images_to_video(cam_path, vid_id, ind=ind)
+
+        if copy_path is not None:
+            vid_path_or = join(render_path, vid_id)
+            vid_path_dst = join(copy_path, vid_id)
+
+            shutil.copy(vid_path_or, vid_path_dst)
+
+
 
 def find_second_underscore(s):
     # Find the position of the first underscore

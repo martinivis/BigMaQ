@@ -310,9 +310,6 @@ class ActionTransformerMAP(nn.Module):
         x = x.permute(1, 0, 2)  # -> [T, B, E]
 
 
-        # todo: maybe add a positional encoding, so it is easier to learn the dynamics for visual features
-
-
         # but MultiheadAttention(pool) wants batch_first,
         # so we’ll convert back in a moment
         x = self.transformer(x, src_key_padding_mask=padding_mask)  # [T, B, E]

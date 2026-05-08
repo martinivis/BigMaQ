@@ -33,6 +33,18 @@
   - ---> try to get the images out of the videos
 
 
+## Installation of pytorch3d:
+mamba install pytorch=1.13.0 torchvision pytorch-cuda=11.6 -c pytorch -c nvidia
+  142  mamba install pytorch=1.13.0 torchvision=0.14.0 torchaudio=0.13.0 pytorch-cuda=11.6   -c pytorch -c nvidia -c conda-forge
+  143  mamba install iopath -c iopath -c conda-forge
+  144  mamba install pytorch3d -c pytorch3d -c conda-forge
+
+- then install with pip install -r requirements.txt the rest
+- for pictorial stuff
+
+
+- first install torch and then afterwards install pytorch3d
+
 - installing pictorial:
 - source /path/to/venv/bin/activate
 cd /path/to/pictorial_package

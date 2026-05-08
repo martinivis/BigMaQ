@@ -16,6 +16,8 @@ def parse_args():
                    help="Render in colors.")
     p.add_argument("--high-poly", action="store_true", default=False,
                    help="Use high-poly mesh.")
+    p.add_argument("--compute-cfg", type=str, default=r"Setup_Local_cfg.json")
+    p.add_argument("--worker", type=int, default=0)
 
     return p.parse_args()
 
@@ -25,20 +27,29 @@ def main():
     import sys
     import os
     from os.path import join
+    import json
+
     # Get the path to the current file's directory
     current_path = os.path.dirname(os.path.abspath(__file__))
     # Navigate up to the level where 'src' is located
     project_root = os.path.abspath(os.path.join(current_path, ".."))
-    src_path = os.path.join(project_root, "src")
 
-    sys.path.append(current_path)
-    sys.path.append(project_root)
-    sys.path.append(current_path)
+    # root/  (parent containing pose_reconstruction and action_recognition)
+    repo_root = os.path.abspath(os.path.join(project_root, ".."))
+
+    for p in (repo_root, project_root):
+        if p not in sys.path:
+            sys.path.insert(0, p)
+
+    #sys.path.append(current_path)
+    #sys.path.append(project_root)
 
     from pose_reconstruction.src.utils.data_loader import ActionLoader
     from pose_reconstruction.src.Optimizers.TimeOpt import TimeOptimizer
     from pose_reconstruction.src.utils.LBS import MeshModel
     import torch
+
+
 
     if torch.cuda.is_available():
         device = torch.device("cuda:0")
@@ -47,6 +58,11 @@ def main():
     else:
         device = torch.device("cpu")
         print("CPU usage")
+
+
+    # Load the cfg file
+    with open(join(project_root, fr"cfgs/{args.compute_cfg}"), "r") as f:
+        compute_cfg = json.load(f)
 
     high_poly = args.high_poly
 
@@ -79,10 +95,13 @@ def main():
     print(
         f"(Image Size, HighPoly) ({max_img_size}, {high_poly}); (mini_batch_size, workers) ({mini_batch_size})")
 
-    worker = 0
+    worker = args.worker
+
+    print(f"Current Worker: {worker}")
+
     nb_workers = 1
 
-    force_action_reload = False
+    force_action_reload = compute_cfg["force_action_reload"]
     squared_images = True
     #max_img_size = 250
     labels_only = False
@@ -90,7 +109,7 @@ def main():
     debug = False
     nb_ind_actions = 6
 
-    hard_drive_loc = r"/media/lucas/X-2/BigMaQ"
+    hard_drive_loc = compute_cfg["hard_drive_loc"]
 
     path_to_dataset = join(hard_drive_loc, "dataset_overview.csv")
 
@@ -98,9 +117,10 @@ def main():
                                  vertex_symm_path=vertex_weights_symmetry,
                                          device=device, max_image_size=max_img_size, labels_only=labels_only, debug=debug,
                                  high_poly=high_poly, force_action_reload=force_action_reload, same_size=squared_images,
-                                 hard_drive_loc=hard_drive_loc)
+                                 hard_drive_loc=hard_drive_loc, project_root=project_root,
+                                 load_undist_rgb=True)
 
-    action_loader.disable_saving = False
+    action_loader.disable_saving = compute_cfg["disable_saving"]
 
     action_loader.project_root = project_root
     # Create the mesh model
@@ -119,10 +139,10 @@ def main():
     use_base_line = True
 
     cam_approach = 0
-    small_change_note = f"EntireSetOpt{time_scalar:.3f}_complete_overlap_flow_mvtrack_basedist_{action_loader.min_cams_cross_view}_{use_base_line}_large_T"
+    small_change_note = f"EntireSetOpt{time_scalar:.3f}_complete_overlap_flow_mvtrack_basedist_{action_loader.min_cams_cross_view}_{use_base_line}_final"
     # Save time by not rendering all the time
-    epoch_render_mod = 100 #todo: increase for test run, MLCLUSTER
-    render_video = True
+    epoch_render_mod = compute_cfg["epoch_render_mod"]
+    render_video = compute_cfg["render_video"]
     # Take all individuals
     nb_ind_actions = 3
     changes_string = (f"Cams({nb_cameras})_MaxIm({max_img_size})_Square({squared_images})_KPconf({use_kp_conf})_"
@@ -136,8 +156,8 @@ def main():
     time_optimizer.selection_scalar = time_scalar
 
 
-    specific_action_index = None
-    load_pose_params = False
+    specific_action_index = 399
+    load_pose_params = True
     export_path = None
 
     time_optimizer.render_bbox = False

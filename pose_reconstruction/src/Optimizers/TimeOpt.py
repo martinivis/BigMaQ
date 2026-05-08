@@ -1,6 +1,8 @@
 import copy
 import pickle
+import shutil
 
+import cv2
 import pandas as pd
 
 from pose_reconstruction.src.Optimizers.VertexOpt import SharedVertexOptimizer
@@ -18,7 +20,7 @@ import time
 from pytorch3d.renderer.cameras import PerspectiveCameras
 from pose_reconstruction.src.utils.LBS import MeshModel
 import itertools
-
+import heapq
 
 
 
@@ -151,7 +153,7 @@ class TimeOptimizer(SharedVertexOptimizer):
         self.FF=False
         self.SA=False
 
-
+        self.action_dataset_path = None
         self.grad_ok = True
 
     def check_time_configuration(self):
@@ -213,6 +215,7 @@ class TimeOptimizer(SharedVertexOptimizer):
 
 
 
+
     def sparse_mixed_camera_selection(self, export_path=None):
         """
 
@@ -233,9 +236,11 @@ class TimeOptimizer(SharedVertexOptimizer):
         # cur individual index
         cur_ind_idx = self.action_loader.individuals.index(self.cur_ind)
 
-        #camera_frame_matrix = self.action_loader.tracking_chk_sum[cur_ind_idx, :, :]
-        camera_frame_matrix = self.action_loader.association_matrix[cur_ind_idx, :, :]
 
+        if self.action_loader.association_matrix is None:
+            camera_frame_matrix = self.action_loader.tracking_chk_sum[cur_ind_idx, :, :]
+        else:
+            camera_frame_matrix = self.action_loader.association_matrix[cur_ind_idx, :, :]
 
         num_frames, num_cameras = camera_frame_matrix.shape
 
@@ -620,6 +625,9 @@ class TimeOptimizer(SharedVertexOptimizer):
                 # Pose the mesh for the batch
                 self.__pose_mesh__()
 
+                #TODO: delete again
+                #self.render_talk()
+
                 # Display the mesh
                 self.display_mesh_on_images()
 
@@ -717,7 +725,7 @@ class TimeOptimizer(SharedVertexOptimizer):
         #print(f"Sequence will have frames from {self.start_frame} to {self.end_frame}")
 
         tqdm_epochs = tqdm(range(self.params_dict["epochs"]), desc=f"Worker: {self.worker}, "
-                                                                   f"Action Subindex: ({self.action_iterate_index}, "
+                                                                   f"Action Subindex: ({self.action_iterate_index}, {(self.start_frame, self.end_frame)}, "
                                                                    f"{self.end_frame-self.start_frame}),"
                                                                    f"Epochs")
 
@@ -786,9 +794,7 @@ class TimeOptimizer(SharedVertexOptimizer):
                 self.body_optimizer.zero_grad()
 
 
-
-
-            if self.epoch % self.epoch_render_mod == 0:
+            if self.epoch % self.epoch_render_mod == 0 and self.epoch != 0:
                 self.render_parameters()
             lr_s_cur = []
             for param in self.body_optimizer.param_groups:
@@ -983,6 +989,26 @@ class TimeOptimizer(SharedVertexOptimizer):
 
         return viable_action_indices
 
+
+    def split_indices_by_cost(self, df, indices,
+                              n_individuals_col="n_individuals",
+                              n_frames_col="n_frames"):
+        cost_series = df[n_individuals_col] * df[n_frames_col]
+        sorted_costs = cost_series.loc[indices].sort_values(ascending=False)
+
+        worker_heap = [(0, w) for w in range(self.nb_workers)]
+        heapq.heapify(worker_heap)
+
+        batches = [[] for _ in range(self.nb_workers)]
+
+        for idx, cost in sorted_costs.items():
+            total_cost, w = heapq.heappop(worker_heap)
+            batches[w].append(idx)
+            heapq.heappush(worker_heap, (total_cost + cost, w))
+
+        return batches
+
+
     def iterate_actions(self, render=True, worker=-1, specific_action_index=None, export_path=None, path_to_mesh=None,
                         all_view_render=False, render_in_default_col = False, load_prev_pose_params=False, debug=True,
                         indep_cam=None):
@@ -990,16 +1016,35 @@ class TimeOptimizer(SharedVertexOptimizer):
 
         # Iterate all the actions of the dataset by individual
 
+        #for idx, row in tqdm(df.iterrows(), total=len(df)):
+
+        # action_indices_to_iterate = self.action_loader.dataset.index.tolist()
+        #
+        #
+        # action_indices_as_array = np.array(action_indices_to_iterate)
+        # action_indices_batches = np.array_split(action_indices_as_array, self.nb_workers)
+        #
+        assert 0 <= worker < self.nb_workers
+        #
+        # action_indices_to_iterate = list(action_indices_batches[worker])
+
+        action_indices_batches = self.split_indices_by_cost(
+            self.action_loader.dataset,
+            self.action_loader.dataset.index.tolist()
+        )
+
+        # Start with smaller ones first
+        action_indices_to_iterate = action_indices_batches[worker][::-1]
 
 
         # 499 is displacement
-        idx = self.action_loader.dataset.index[self.action_loader.dataset["Unnamed: 0"] == 499][0]
+        #idx = self.action_loader.dataset.index[self.action_loader.dataset["Unnamed: 0"] == 499][0]
 
         # 145 is eating to check for procrustes smoothness
         #idx = self.action_loader.dataset.index[self.action_loader.dataset["Unnamed: 0"] == 145][0]
 
         # 761 long temporal action, three individuals
-        idx = self.action_loader.dataset.index[self.action_loader.dataset["Unnamed: 0"] == 761][0]
+        #idx = self.action_loader.dataset.index[self.action_loader.dataset["Unnamed: 0"] == 761][0]
 
         # 438
         #idx = self.action_loader.dataset.index[self.action_loader.dataset["Unnamed: 0"] == 438][0]
@@ -1010,13 +1055,32 @@ class TimeOptimizer(SharedVertexOptimizer):
         # Failure case with 3 individuals,
         #idx = self.action_loader.dataset.index[self.action_loader.dataset["Unnamed: 0"] == 473][0]
 
-        action_indices_to_iterate = [idx]
+        #action_indices_to_iterate = [idx]
+
+        worker_dataset_log = self.action_loader.dataset.copy()
+        worker_dataset_log["optimized_successfully"] = False
+        worker_dataset_log["nb_epochs"] = 0
+        worker_dataset_log["ret_list"] = None
+        worker_dataset_log["grad_ok_list"] = None
 
 
-        #todo: set up iterating over the datset entirely.
+
+
+        log_dir = join(self.action_loader.hard_drive_loc, "ActionDataset", "WorkerLogs")
+        os.makedirs(log_dir, exist_ok=True)
+        worker_log_path = join(log_dir, f"action_dataset_worker_{worker}.csv")
+        #worker_dataset_log.to_csv(worker_log_path, index=True)
 
         for action_iterate_index, action_index in enumerate(action_indices_to_iterate):
 
+
+
+            ### If there is optimization renderin in acti
+            action_path = self.action_loader.dataset.loc[action_index, "path"]
+            renderings = join(action_path, "Optimization_Renderings")
+
+            if os.path.exists(renderings):
+                shutil.rmtree(renderings)
 
             if specific_action_index is not None:
                 if action_index != specific_action_index:
@@ -1029,29 +1093,40 @@ class TimeOptimizer(SharedVertexOptimizer):
             #if action_index < 268:
             #    continue
 
+            # TODO: check if the individual is one and it is L or N in the row
 
-            self.grad_ok = True
+            inds_this_action = self.action_loader.dataset.loc[action_index, "individuals"]
+
+            if len(inds_this_action) > 1:
+                continue
+            if ("N" not in inds_this_action) and ("L" not in inds_this_action):
+                continue
+
 
             self.action_iterate_index = action_iterate_index
             # Load the tracking data of that action
 
-            nb_inds = 1
-            if self.SA and nb_inds!=1:
-                continue
+            # nb_inds = 1
+            # if self.SA and nb_inds!=1:
+            #     continue
 
             self.action_loader.load_action_into_entire_dict(action_index)
 
-            print("Loading action: ", self.action_loader.action_path)
+            # TODO: save all the images for viewpoints, as well as all 3D keypoints over time, and 2D keypoints
 
 
             ### Solve the alignment of multiple animals here
             self.action_loader.proc_cross_view_matching()
 
+            ret_list = []
+            grad_ok_list = []
 
             for ind_index, ind in enumerate(self.action_loader.unique_individuals):
 
                 # if ind != 'L':
                 #     continue
+
+                self.grad_ok = True
 
                 self.cur_ind = ind
 
@@ -1066,18 +1141,32 @@ class TimeOptimizer(SharedVertexOptimizer):
                 if not self.cur_ind in self.action_loader.individuals:
                     continue
 
+
+
                 # Define the path to save the optimized action
-                self.action_save_path = join(self.action_loader.action_path, f"action_params_{self.cur_ind}_"
-                                                                             f"{str(self.nb_cameras).zfill(2)}.pth")
+                ind_opt_string = f"action_params_{self.cur_ind}_{str(self.nb_cameras).zfill(2)}.pth"
+                self.action_save_path = join(self.action_loader.action_path, ind_opt_string)
+
+                ## Extend to the Actiondataset path
+                action_dataset_path = join(self.action_loader.hard_drive_loc, "ActionDataset")
+                os.makedirs(action_dataset_path, exist_ok=True)
+                action_dataset_path = join(action_dataset_path, "Actions")
+                os.makedirs(action_dataset_path, exist_ok=True)
+                action_dataset_path = join(action_dataset_path, f"{action_index}")
+                os.makedirs(action_dataset_path, exist_ok=True)
+
+                self.action_dataset_path = join(action_dataset_path, ind_opt_string)
 
 
 
                 # Generate a flow of cameras to use in optimization
                 ret = self.sparse_mixed_camera_selection(export_path)
 
+                ret_list.append(bool(ret))
 
                 if not ret:
                     print("No frame satisfies all cameras")
+                    grad_ok_list.append(False)
                     continue
                 print(f"Optimizing action: ({action_index}, {self.action_loader.action_path})")
 
@@ -1095,8 +1184,15 @@ class TimeOptimizer(SharedVertexOptimizer):
                         self.device)
                     self.model_parameters["camera_selection_matrix"] = torch.from_numpy(self.camera_selection_matrix)
 
+
+
+
                     # Save the pose data for that action
                     torch.save(self.model_parameters, self.action_save_path)
+
+                    # Save also at the ActionDatasetPath
+                    torch.save(self.model_parameters, self.action_dataset_path)
+
                     # For hyper-optimization save the parameters for the configuration as well.
                     torch.save(self.model_parameters, join(self.render_path, f"action_params_{self.cur_ind}_"
                                                                          f"{str(self.nb_cameras).zfill(2)}.pth"))
@@ -1116,6 +1212,7 @@ class TimeOptimizer(SharedVertexOptimizer):
                     # Load the parameters usually saved into the model, body pose etc.
                     self.assign_time_fits()
 
+                grad_ok_list.append(bool(self.grad_ok))
 
                 if render:
                     print("Render the fitted sequence!")
@@ -1132,8 +1229,16 @@ class TimeOptimizer(SharedVertexOptimizer):
                     self.video = True
 
                     self.render_parameters_action()
+
+
                     #self.render_action(action_index_to_render=action_index)
-                    utils.create_videos(self.render_path, cameras=self.cameras_action_display, ind=ind)
+
+
+                    path_special_render = r"/media/lucas/FastInternal/BigMaQ/Diverse/ActionsForTalk"
+
+
+                    utils.create_videos(self.render_path, cameras=self.cameras_action_display, ind=ind,
+                                       action_index=action_index, copy_path=path_special_render)
 
                     # Reset the action iteration again
                     self.video = False
@@ -1142,6 +1247,99 @@ class TimeOptimizer(SharedVertexOptimizer):
                     # Reload the action data
                     # Load the tracking data of that action
                     self.action_loader.load_action_into_entire_dict(action_index)
+
+
+            worker_dataset_log.loc[action_index, "ret_list"] = str(ret_list)
+            worker_dataset_log.loc[action_index, "grad_ok_list"] = str(grad_ok_list)
+            worker_dataset_log.loc[action_index, "optimized_successfully"] = (
+                    len(ret_list) > 0
+                    and len(grad_ok_list) > 0
+                    and all(ret_list)
+                    and all(grad_ok_list)
+            )
+            worker_dataset_log[action_index, "nb_epochs"] = self.params_dict["epochs"]
+            worker_dataset_log.to_csv(worker_log_path, index=True)
+
+
+    def render_talk(self):
+
+
+        path = join(self.action_loader.action_path, "RenderTalk")
+        image_path = join(path, "images")
+
+        os.makedirs(path, exist_ok=True)
+        os.makedirs(image_path, exist_ok=True)
+
+        images = self.action_loader.undist_rgbs
+        keypoints_3d = self.posed_3d_keypoints.detach().cpu().numpy()
+        keypoints_3d = np.asarray(keypoints_3d, dtype=np.float64)
+
+        keypoints2d_path = join(path, "keypoints2d.npz")
+        keypoints3d_path = join(path, "keypoints3d.npz")
+
+        keypoints2d_store = {}
+        keypoints3d_store = {}
+
+        if os.path.exists(keypoints2d_path):
+            keypoints2d_store.update(dict(np.load(keypoints2d_path, allow_pickle=True)))
+
+        if os.path.exists(keypoints3d_path):
+            keypoints3d_store.update(dict(np.load(keypoints3d_path, allow_pickle=True)))
+
+        for cam_name, big_cam in self.action_loader.big_cams.cam_dict.items():
+
+            if cam_name not in images:
+                continue
+
+            cam_image_path = join(image_path, str(cam_name))
+            os.makedirs(cam_image_path, exist_ok=True)
+
+            R = np.asarray(big_cam.R, dtype=np.float64)
+            t = np.asarray(big_cam.t, dtype=np.float64)
+            K = np.asarray(big_cam.K, dtype=np.float64)
+            d = np.asarray(big_cam.d, dtype=np.float64)
+
+
+            for frame_idx, (frame_key, image) in enumerate(images[cam_name].items()):
+                save_key = f"{cam_name}/{frame_key}"
+
+                frame_keypoints_3d = keypoints_3d[frame_idx]
+                projected_keypoints = cv2.projectPoints(
+                    frame_keypoints_3d,
+                    R,
+                    t,
+                    K,
+                    d
+                )[0].reshape(-1, 2)
+
+                keypoints2d_store[save_key] = projected_keypoints
+                keypoints3d_store[save_key] = frame_keypoints_3d
+
+                image_out = image.copy()
+
+                if image_out.dtype != np.uint8:
+                    image_out = np.clip(image_out, 0, 255).astype(np.uint8)
+
+                if image_out.ndim == 3 and image_out.shape[-1] == 3:
+                    image_out = cv2.cvtColor(image_out, cv2.COLOR_RGB2BGR)
+                #
+                # h, w = image_out.shape[:2]
+                #
+                # for x, y in projected_keypoints:
+                #     x = int(round(x))
+                #     y = int(round(y))
+                #
+                #     if 0 <= x < w and 0 <= y < h:
+                #         cv2.circle(image_out, (x, y), 4, (0, 255, 0), -1)
+                #         cv2.circle(image_out, (x, y), 6, (0, 0, 0), 1)
+
+                cv2.imwrite(join(cam_image_path, f"{frame_key}.png"), image_out)
+
+        np.savez_compressed(keypoints2d_path, **keypoints2d_store)
+        np.savez_compressed(keypoints3d_path, **keypoints3d_store)
+
+        #0
+
 
 
 

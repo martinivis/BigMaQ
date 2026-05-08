@@ -10,7 +10,7 @@ import shutil
 import re
 import torch
 import numpy as np
-from src.utils import longest_common_interval
+from action_recognition.src.utils import longest_common_interval
 
 source_drive = r"/media/lucas/V-2"
 dest_drive = r"/media/lucas/FastInternal/BigMacaque/ActionDataset"
@@ -59,7 +59,7 @@ paths_to_skip = ["/media/lucas/V-2/Session9/Actions/Interaction/CollectiveIntere
 model_activations = ["resnet50", "movinet-a2", "dinov2-base-cls", "vit-base-cls",
                      "dinov2-base-patch", "vit-base-patch","timesformer-base-finetuned-k400", "videoprism_public_v1_base_hf"]
 
-copy_model = 3
+copy_model = 4
 
 model_name = model_activations[copy_model]#"resnet50"
 

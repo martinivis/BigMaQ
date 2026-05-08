@@ -23,7 +23,7 @@ import copy
 from scipy.io import loadmat
 import pose_reconstruction.src.utils.data_loader as dat_loader
 import matplotlib
-matplotlib.use('TkAgg')
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from PIL import Image
 import pandas as pd
@@ -363,7 +363,7 @@ class ActionLoader():
     """
     def __init__(self, path_to_label_split, path_to_dataset, vertex_symm_path, device='cuda', labels_only=False,
                  max_image_size=None, debug=False, hard_drive_loc=None, hard_drive_loc_fast=None, load_undist_rgb=True,
-                 high_poly=False, same_size=True, force_action_reload=False, dummy=False):
+                 high_poly=False, same_size=True, force_action_reload=False, dummy=False, project_root=None):
 
         # Path to labeled actions
         self.label_split = path_to_label_split
@@ -380,8 +380,9 @@ class ActionLoader():
         self.hard_drive_loc = hard_drive_loc
         self.hard_drive_loc_fast = self.hard_drive_loc
 
+        self.project_root = project_root
+
         self.unique_individuals = ['C', 'G', 'H', 'J', 'L', 'N', 'O', 'T']
-        self.project_root = None
 
         # Dictionary over individuals, list of lists, 1st (single), 2nd (double actions), 3rd (triple actions), gives index in the entire dataset
         self.action_indices_by_ind = {ind: [[], [], []] for ind in self.unique_individuals}
@@ -593,7 +594,7 @@ class ActionLoader():
 
 
 
-        with open(join(r"../data/tmp", f"actions_overview_by_ind.json"), 'w') as f:
+        with open(join(self.project_root, f"data/tmp/actions_overview_by_ind.json"), 'w') as f:
             json.dump(self.action_indices_by_ind, f, indent=4)
     def load_bigmac_overview(self):
 
@@ -699,7 +700,18 @@ class ActionLoader():
             # Action path
 
             row_series = self.dataset.loc[vid_index]
-            self.action_path = row_series["path"]
+
+
+            base = Path(self.hard_drive_loc)
+            old_path = Path(row_series["path"])
+
+            find_str = "BigMaQ"
+            relative = old_path.parts[old_path.parts.index(find_str) + 1:]
+            action_path = base.joinpath(*relative)
+
+
+            self.action_path = str(action_path)
+
 
             # Individuals, get the list of full names as usual
             self.individuals = [x for x in row_series["individuals"]]
@@ -1961,7 +1973,7 @@ class ActionLoader():
 
         alignment_path = join(self.action_path, "mult_align.pkl")
 
-        if not os.path.exists(alignment_path):
+        if not os.path.exists(alignment_path) or self.force_action_reload:
             T = self.generate_tracking_labels()
 
             # filling the data works, but the cid and tt[0] are a bit hard to understand, more research necessary

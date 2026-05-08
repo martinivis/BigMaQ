@@ -1,7 +1,7 @@
 import os.path
 import cv2
 import matplotlib
-matplotlib.use('TkAgg')
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from os.path import join
 import numpy as np

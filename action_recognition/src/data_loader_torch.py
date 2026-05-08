@@ -11,6 +11,7 @@ from torch.utils.data import Dataset
 import action_recognition.src.utils as utils
 from math import ceil
 from iterstrat.ml_stratifiers import MultilabelStratifiedShuffleSplit
+import json
 
 individuals_map = {"C": "Cuba",
                     "J": "Jekyll", "H": "Hyde",
@@ -126,7 +127,6 @@ class ActionDataset(Dataset):
         stats = np.load(join(self.drive_loc, "trans_stats.npz"))
         self.mean_trans, self.std_trans = stats["mean_trans"], stats["std_trans"]
 
-        #todo: export tr, val, and test splits
 
         def load_offsets(path):
 
@@ -155,111 +155,7 @@ class ActionDataset(Dataset):
         # 363 single, multi 441 max pad length
         self.T_idx = {}
 
-        # 2) Shuffle + split (Before expanding by viewpoints)
-        ### It is generally not possible to split after, because then the model sees the same input for the same label
-        # can just remember the pose!!
-
-        stratified = True
-
-        if stratified:
-
-            hot_labels = self.create_hot_label_data(df)
-            idxs_all = np.arange(len(df))
-
-            hot_labels = hot_labels.astype(int)
-
-
-            classes_below_ten = {}
-
-            few_label_columns = np.argwhere([hot_labels.sum(axis=0) < 10])[:, 1]
-
-            for f_l_col in few_label_columns:
-
-                few_label_col = hot_labels[:, f_l_col]
-
-                row_working = np.argwhere(few_label_col == 1).squeeze()
-                classes_below_ten[f_l_col] = row_working[-3:]
-
-
-            ## Used to delete the stratified indices
-            flat = np.concatenate(list(classes_below_ten.values()))  # join into one big array
-            duplicates_exist = len(flat) != len(np.unique(flat))
-
-            assert not duplicates_exist
-
-            seed = 1
-
-            # First split: TrainVal vs Test
-            msss1 = MultilabelStratifiedShuffleSplit(
-                    n_splits=1, test_size=test_ratio, random_state=seed
-                )
-            trainval_idx, test_idxs = next(msss1.split(idxs_all, hot_labels))
-
-            # Second split: Train vs Val (on the TrainVal partition)
-            rel_val_ratio = val_ratio / (1.0 - test_ratio + 1e-12)
-            msss2 = MultilabelStratifiedShuffleSplit(
-                    n_splits=1, test_size=rel_val_ratio, random_state=seed
-                )
-            tr_rel, val_rel = next(msss2.split(trainval_idx, hot_labels[trainval_idx]))
-
-            train_idxs = trainval_idx[tr_rel]
-            val_idxs = trainval_idx[val_rel]
-
-
-            # Delete the pre-assign values
-            for val_pre in flat:
-                train_idxs = train_idxs[train_idxs != val_pre]
-                val_idxs = val_idxs[val_idxs != val_pre]
-                test_idxs = test_idxs[test_idxs != val_pre]
-
-            for col, vals in classes_below_ten.items():
-
-                train_idxs = np.append(train_idxs, vals[0])
-                val_idxs = np.append(val_idxs, vals[1])
-                test_idxs = np.append(test_idxs, vals[2])
-
-
-            ## Check uniqueness
-            flat = np.concatenate([train_idxs, val_idxs, test_idxs])  # join into one big array
-            duplicates_exist = len(flat) != len(np.unique(flat))
-
-            assert not duplicates_exist
-
-
-            ### Check that each column has a one
-            tr_true = (hot_labels[train_idxs].sum(axis=0) == 0).sum() == 0
-            val_true = (hot_labels[val_idxs].sum(axis=0) == 0).sum() == 0
-            test_true = (hot_labels[test_idxs].sum(axis=0) == 0).sum() == 0
-
-            assert tr_true and val_true and test_true
-
-            idxs = df.index.tolist()
-
-            train_idxs = [idxs[x] for x in train_idxs] #354
-            val_idxs = [idxs[x] for x in val_idxs] #81
-            test_idxs = [idxs[x] for x in test_idxs]#78
-
-        else:
-
-            idxs = df.index.tolist()
-            random.seed(seed)
-            random.shuffle(idxs)
-
-            N_test = int(len(idxs) * test_ratio)
-            N_val = int(len(idxs) * val_ratio)
-            test_idxs = idxs[:N_test]  ## Test always first, so they are not depended on the val size
-            val_idxs = idxs[N_test:N_test + N_val]
-            train_idxs = idxs[N_test + N_val:]
-
-
-        import json
-
-        # data_split = {'tr': train_idxs, 'val': val_idxs, 'test': test_idxs}
-        #
-        # with open(join(drive_loc, "data_split.json"), 'w') as file:
-        #     json.dump(data_split, file)
-
-
+        # Load the splits
         with open(join(drive_loc, "data_split.json"), 'r') as f:
             data_split = json.load(f)
 
@@ -274,50 +170,20 @@ class ActionDataset(Dataset):
         else:  # split == "test"
             chosen = test_idxs
 
+        ### Load the splits for Cross-validation
         if fold_idx == -1:
             pass
         else:
 
             assert 0 <= fold_idx < 5, f"fold_idx must be in [0,4], got {fold_idx}"
 
-            # Pool train+val indices (already mapped to df indices above)
-            pool_indices = np.array(train_idxs + val_idxs)
-
-            # Build multilabel targets for those rows (reuse your helper on the subset)
-            pool_df = df.loc[pool_indices]
-            Y_pool = self.create_hot_label_data(pool_df).astype(int)
-
-            try:
-                # Preferred: iterative stratification for multilabel
-                from iterstrat.ml_stratifiers import MultilabelStratifiedKFold
-                mskf = MultilabelStratifiedKFold(n_splits=5, shuffle=True, random_state=seed)
-                folds = list(mskf.split(np.arange(len(pool_df)), Y_pool))
-            except Exception:
-                print("Unstratified kfold")
-                # Fallback: plain KFold (not stratified). You can also derive a proxy single label if needed.
-                from sklearn.model_selection import KFold
-                kf = KFold(n_splits=5, shuffle=True, random_state=seed)
-                folds = list(kf.split(np.arange(len(pool_df))))
-
-            tr_rel, val_rel = folds[fold_idx]  # relative indices within pool_df
-            tr_cv = pool_indices[tr_rel]  # map back to df indices
-            val_cv = pool_indices[val_rel]
-
-            tr_cv = tr_cv.tolist()
-            val_cv = val_cv.tolist()
-
-            # data_split = {'tr': tr_cv, 'val':  val_cv, 'test': test_idxs}
-            #
-            # with open(join(drive_loc, f"data_split_{fold_idx}.json"), 'w') as file:
-            #     json.dump(data_split, file)
-
-            with open(join(drive_loc, f"data_split_{fold_idx}.json"), 'r') as f:
+            split_path = join(drive_loc, f"data_split_{fold_idx}.json")
+            with open(split_path, "r") as f:
                 data_split = json.load(f)
 
-            tr_cv = data_split['tr']
-            val_cv = data_split['val']
-            test_idxs = data_split['test']
-
+            tr_cv = data_split["tr"]
+            val_cv = data_split["val"]
+            test_idxs = data_split["test"]
 
             if split == "train":
                 chosen = tr_cv
@@ -326,9 +192,6 @@ class ActionDataset(Dataset):
             else:  # split == "test"
                 chosen = test_idxs
 
-            # Instead load from saved splits # todo:
-
-        #print(chosen)
 
         df = df.loc[chosen].reset_index(drop=True)
         self._compute_pos_weight_from_df(df, clamp_max=None)

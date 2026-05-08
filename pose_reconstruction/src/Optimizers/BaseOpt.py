@@ -527,9 +527,8 @@ class BaseOptimizer():
 
     def _load_joint_limits(self):
 
-        print(os.getcwd())
-
-        with open('../data/Mesh/joint_limits.json') as f:
+        path = join(self.action_loader.project_root, "data/Mesh/joint_limits.json")
+        with open(path) as f:
             joint_limits = json.load(f)['JOINT_LIMITS']
 
         lower, upper = [], []

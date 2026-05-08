@@ -1,0 +1,7 @@
+{
+    "force_action_reload": true,
+    "disable_saving" : false,
+    "epoch_render_mod": 400,
+    "render_video": true,
+    "hard_drive_loc": "/mnt/lustre/work/giese/gtc913/data/BigMaQ/BigMaQ"
+}
