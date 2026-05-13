@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<project version="4">
-  <component name="SshConfigs">
-    <configs>
-      <sshConfig host="localhost" id="b540c9cb-c3f0-43d7-9ee6-349c908351fa" keyPath="$USER_HOME$/.ssh/id_ed25519_mlcloud" port="11123" nameFormat="DESCRIPTIVE" username="gtc913" useOpenSSHConfig="true" />
-    </configs>
-  </component>
-</project>
