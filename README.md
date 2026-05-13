@@ -47,7 +47,7 @@ python -m pip install -e .
 
 ## Code Execution
 
-- Please send a data request first [here](https://docs.google.com/forms/d/e/1FAIpQLSf30FV5pyhGQac8C5tSM2dW17n7j4xpB_2sNu9UnkeBYdW93Q/viewform?usp=sharing&ouid=116164636450166882978), and set up the link to it in `pose_reconstruction/cfgs/Setup_Local_cfg.json`.
+- Please send a data request first [here](https://docs.google.com/forms/d/e/1FAIpQLSf30FV5pyhGQac8C5tSM2dW17n7j4xpB_2sNu9UnkeBYdW93Q/viewform?usp=sharing&ouid=116164636450166882978) (we are currently in the last steps of hosting it), and set up the link to it in `pose_reconstruction/cfgs/Setup_Local_cfg.json`.
 - To run the script, please activate the environment, navigate into the folder `pose_reconstruction/scripts` and run the following in the command line
 ```code
 python ActionTracking.py
