@@ -12,8 +12,8 @@
 <p align="center">
 <a href="https://arxiv.org/abs/2602.19874">📄 Paper</a> |
 <a href="https://docs.google.com/forms/d/e/1FAIpQLSf30FV5pyhGQac8C5tSM2dW17n7j4xpB_2sNu9UnkeBYdW93Q/viewform?usp=sharing&ouid=116164636450166882978">📊 Dataset request </a> |
+<a href="https://martinivis.github.io/BigMaQ/">🌐 Project Page</a>
 </p>
-
 
 ## Introduction
 
@@ -32,7 +32,7 @@ Please create a conda environment for your specific setup according to [Pytorch3
 Afterwards, you can install the remaining packages for the environment listed in `pose_reconstruction/requirements.txt`, via:
 
 ```shell
-    pip install -r requirements.txt
+pip install -r requirements.txt
 ```
 
 If you want to optimize the pose in a multi-view consistent fashion similar to this paper [macaquepose3d](https://www.science.org/doi/10.1126/sciadv.adn1355) ,
