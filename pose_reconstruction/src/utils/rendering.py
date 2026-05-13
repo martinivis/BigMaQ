@@ -20,65 +20,13 @@ class SingleViewRenderer():
 
         self.device = device
 
-        # Define the camera parameters
-        # Current pytorch3d version 0.7.2
-
-        # # Define Camera parameters
-        # R_np = np.eye(3)
-        # R_np[0, 0] = -1
-        # R_np[1, 1] = -1
-        #
-        # t_np = np.array([[0, 0, 1]])
-        #
-        # # Get the camera location in world coordinates
-        # cam_loc_np = -R_np.T@t_np.T
-        #
-        # R = torch.Tensor(R_np).float()[None, :, :].to(self.device)
-        #
-        # # It is only necessary to push back along the z axis
-        # T = torch.Tensor(t_np).float().to(self.device)
-        #
-        #
-        # self.R = R
-        # self.T = T
-        #
-        # ## Define the intrinsics based
-        # K = torch.Tensor(np.eye(3)).to(self.device)[None, :, :]
-        # K[0, 0, 2] = image_size[0] / 2.
-        # K[0, 1, 2] = image_size[1] / 2.
-        #
-        # self.K = K
-        #
         # Tuple with width and height
         self.image_size = image_size
         self.image_size_as_tuple = (int(self.image_size[0]), int(self.image_size[1]))
         #
-        # #self.principal_point = torch.Tensor([image_size[1] / 2., image_size[0] / 2.]).float()[None, :]
-        #
-        # # In OpenCV format due to discrepancy in world 2 screen and sil renderer
-        # self.image_size_tensor = torch.from_numpy(image_size).unsqueeze(0).to(device)
-        #
-        # # Lights, Put a light at the camera center
-        # # [[0.0, 0.0, -2.0]]
-        #
-        #
-        # # Put some more lights because mesh is somehow not lit, light pos is at cam pos which is 0,0,-1
-        # altered_locs = np.array([[0, 0, 1]])#np.array([[0, 0, 1], [0, 0, -2]])
-        # light_locs = np.vstack((altered_locs, cam_loc_np.T))
-        #
-        # # A light at plus resolves the issue for shadowed meshes, but check where the camera would be in these cases... and mesh
-        # light_locs = np.array([[0, 0, 1]])
-        # light_locs = cam_loc_np.T
-
-        #self.lights = PointLights(device=self.device, location=light_locs)
         self.lights = AmbientLights(device=self.device)
 
-        #self.lights = PointLights(device=self.device, location=[[0.0, 0.0, -2.0]])
-        # Create a camera that can be optimized, do not create a camera every iteration as this results in
-        # backwarding the graph multiple times
 
-        # self.camera = conversion_opencv_pytorch(R=self.R, t=self.T, K=self.K,
-        #                                                 img_size=self.image_size_tensor, device=device)
 
     def get_camera(self, focal_lengths):
 

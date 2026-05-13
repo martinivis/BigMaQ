@@ -231,8 +231,6 @@ class SharedVertexOptimizer(BaseOptimizer):
 
             # Do the procrustes
 
-        # TODO: Procrustes is not the problem itself if smoothed
-        # todo: check that we are in time mode, check that action keyframes are long enough
         if window is not None:
             global_t = smooth(global_t, window=window)
 

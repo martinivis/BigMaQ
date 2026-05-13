@@ -12,10 +12,15 @@ import torch
 import numpy as np
 from action_recognition.src.utils import longest_common_interval
 
+
+
 source_drive = r"/media/lucas/V-2"
+source_drive = r"/media/lucas/W-2/BigMaQ"
+
 dest_drive = r"/media/lucas/FastInternal/BigMacaque/ActionDataset"
 csv_path    = "/media/lucas/V-2/LabelInformation/EntireDataset/tracked_actions.csv"
 
+csv_path = r"/media/lucas/W-2/BigMaQ/dataset_overview.csv"
 
 def create_folder(path):
     os.makedirs(path, exist_ok=True)
@@ -52,14 +57,14 @@ df = pd.read_csv(csv_path)
 df_new = df.copy()
 df_new["Session"] = None
 
-### Paths not to include... # todo: maybe make these excluded
+### Paths not to include...
 paths_to_skip = ["/media/lucas/V-2/Session9/Actions/Interaction/CollectiveInterest_G_T_2",
                  "/media/lucas/V-2/Session9/Actions/Interaction/Scratch_T_3"]
 
 model_activations = ["resnet50", "movinet-a2", "dinov2-base-cls", "vit-base-cls",
                      "dinov2-base-patch", "vit-base-patch","timesformer-base-finetuned-k400", "videoprism_public_v1_base_hf"]
 
-copy_model = 4
+copy_model = 3
 
 model_name = model_activations[copy_model]#"resnet50"
 
@@ -98,6 +103,9 @@ for idx, row in tqdm(df.iterrows(), total=len(df)):
     for f in os.listdir(path):
         if f.endswith(".pth") and 'action_params' in f:  # get rid of labeled opt params
 
+            ## Check if the individuals full name is in the file
+
+
             if f"{str(opt_cams).zfill(2)}.pth" in f:
                 params = torch.load(join(path, f), map_location="cpu", weights_only=False)
                 action_params_frame_seq.append(params['frame_sequence'].int())
@@ -106,6 +114,8 @@ for idx, row in tqdm(df.iterrows(), total=len(df)):
 
                 if torch.isnan(pose_test).any():
                     none_detected = True
+
+
 
     if none_detected:
         #print(f"{path} has NAN in the pose")
@@ -146,7 +156,6 @@ for idx, row in tqdm(df.iterrows(), total=len(df)):
     create_folder(new_action_path)
 
 
-    #todo: check that it works.
     video_encodings_folder = join(new_action_path, "VideoEncodings")
 
 
@@ -158,7 +167,7 @@ for idx, row in tqdm(df.iterrows(), total=len(df)):
         for act_file_old in activation_files:
             os.remove(join(video_encodings_folder, act_file_old))
 
-        # Delete also files that are subgroups? #todo: maybe
+        # Delete also files that are subgroups?
         activation_files = [x for x in os.listdir(video_encodings_folder) if '.npz' in x]
         for act_file_old in activation_files:
             for model in model_activations:
@@ -169,8 +178,6 @@ for idx, row in tqdm(df.iterrows(), total=len(df)):
     # Copy the new ones based on the model_name
     video_encodings_general_folder = join(path, "VideoEncodings")
     activation_files = [x for x in os.listdir(video_encodings_general_folder) if model_name in x]
-
-
 
     for act_file_new in activation_files:
 

@@ -61,7 +61,6 @@ def batch_rodrigues(theta, dtype=torch.float32):
     quat = torch.cat([v_cos, v_sin * normalized], dim = 1)
     return quat_to_rotmat(quat).float()
 
-#todo: save the global translation mean and variance of all centered translations.
 
 
 all_translations = []

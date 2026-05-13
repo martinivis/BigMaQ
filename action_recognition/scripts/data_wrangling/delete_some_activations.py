@@ -8,7 +8,7 @@ actions = [x for x in os.listdir(path_actions)]
 
 model_activations = ["resnet50", "movinet-a2", "dinov2-base-cls", "vit-base-cls",
                      "dinov2-base-patch", "vit-base-patch","timesformer-base-finetuned-k400", "videoprism_public_v1_base_hf"]
-model_idx = -1
+model_idx = 3
 model_name = model_activations[model_idx]
 
 from os.path import join

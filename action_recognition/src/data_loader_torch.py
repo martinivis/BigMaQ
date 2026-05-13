@@ -60,7 +60,7 @@ class ActionDataset(Dataset):
                  split: str = "train",
                  fold_idx: int = -1,
                  val_ratio: float = 0.2,
-                 test_ratio: float = 0.2, # increased to 0.2#todo:
+                 test_ratio: float = 0.2, # increased to 0.2
                  seed: int = 42,
                  subsample_time: int = 4,
                  spec_cameras_sel_idx: int = 0,

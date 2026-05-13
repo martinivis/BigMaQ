@@ -1,0 +1,6 @@
+pictorial.pyx
+setup.py
+pictorial.egg-info/PKG-INFO
+pictorial.egg-info/SOURCES.txt
+pictorial.egg-info/dependency_links.txt
+pictorial.egg-info/top_level.txt

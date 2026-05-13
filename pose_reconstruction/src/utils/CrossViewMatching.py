@@ -9,18 +9,6 @@ import time
 import pose_reconstruction.src.utils.multicam_toolbox as mct
 from pose_reconstruction.src.m_lib.pictorial import transform_closure
 
-"""
-try:
-    from pictorial import transform_closure
-    print("Module pictorial is imported.")
-except ImportError:
-    print("Module pictorial is not installed")
-    try:
-        from src.m_lib.pictorial import transform_closure
-        print("Module src.m_lib.pictorial is imported.")
-    except ImportError:
-        print("Module src.m_lib.pictorial is not installed")
-"""
 import os.path as osp
 import cv2
 import numpy as np
@@ -42,6 +30,12 @@ p_thr_2dt = 0.8
 
 model_cfg = {'joint_num': 17, 'spectral': True, 'alpha_SVT': 0.5,
              'lambda_SVT': 50, 'dual_stochastic_SVT': False, }
+
+"""
+Code taken and adapted from: https://github.com/PrimatoModelling/macaque3Dpose/blob/main/step2_crossviewmatching.py
+Three-dimensional markerless motion capture of multiple freely behaving monkeys toward automated characterization of social behavior
+by Jumpei Matsumoto and Takaaki Kaneko et al., 2025, Science Advances
+"""
 
 
 def get_camparam(config_path):

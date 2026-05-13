@@ -16,7 +16,6 @@ source_drive = r"/media/lucas/V-2"
 dest_drive = r"/media/lucas/FastInternal/BigMacaque/ActionDataset"
 csv_path    = "/media/lucas/V-2/LabelInformation/EntireDataset/tracked_actions.csv"
 
-#todo: uncomment for real data exports to a bigger drive
 
 def create_folder(path):
     os.makedirs(path, exist_ok=True)

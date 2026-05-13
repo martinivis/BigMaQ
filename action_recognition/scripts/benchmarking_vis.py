@@ -62,7 +62,7 @@ flags = {
     "global_inf":    [False],  # Reduced because not necessary
     "use_pose":      [False, True],
     "add_feat":      [False], # Additive features doesn't work for the 2 MLP encodings, hence concat the representations
-    "use_vis":       [False], # False, True
+    "use_vis":       [False, True], # False, True
     "ws":           [0.5]
 }
 
@@ -122,6 +122,8 @@ pose_spaces = ["3D-AA", "3D-KP", "3D-Vert", "2D-KP"]
 model_idx = 3
 pose_idx = 0
 
+
+#
 run_idx = 0
 
 use_stopper = True
@@ -137,20 +139,19 @@ model_name = model_activations[model_idx]
 # Bottleneck of training is likely just the disk retrieval!, for less features way faster
 
 # Skip the pose run,
-skip_pose_run=False
+skip_pose_run=True
 
 # to return to faster training, unmount and mount and restart pycharm
 
-all_runs = [all_runs[run_idx]] #todo: comment if multiple
+all_runs = [all_runs[run_idx]] # comment if multiple
 #for run in all_runs[run_idx]:
 seed_list = [42, 43, 44]
-seed_list = [42]
-seed_list = [43, 44]
+#seed_list = [42] # this corresponds to a -1 run
+#seed_list = [43, 44]
 
-seed_list = [45]
-#todo: currently it runs vision only on multiple pose selections? just run with run_idx 2?
-pose_list = [0, 1, 2, 3]
-pose_list = [0]
+#seed_list = [45]
+pose_list = [0, 1, 2, 3, 4]
+#pose_list = [0]
 
 for pose_idx in pose_list:
     for seed in seed_list:

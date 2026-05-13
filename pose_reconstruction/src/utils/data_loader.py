@@ -1240,7 +1240,6 @@ class ActionLoader():
 
 
 
-                        #todo: save the bbox coordinates? of the undistorted bbox. as well as undistored 2d keypoints
 
                         ### Masks, and rgb assignment
                         mask_p_i[ind], scale_factor, rgb_p_i[ind], undist_bbox, undist_2d_kp, kp_2d_uncropped = (
@@ -1492,7 +1491,6 @@ class ActionLoader():
 
                 self.entire_labeled_data[action_index] = action_labels_dict
 
-                # TODO: disable saving it for the cluster
                 if not self.disable_saving:
                     self.write_trckingdata_to_pickle()
 
@@ -1917,12 +1915,12 @@ class ActionLoader():
                     if len(ind_results) == 3:
                         continue
 
-                    # Get the cropping information from YOLO, #todo: ind_id is the label within the 8 individuals themselves
+                    # Get the cropping information from YOLO, ind_id is the label within the 8 individuals themselves
                     bbox, ind_id, bbox_conf, kps_2d_det, kps_2d_conf = ind_results
 
                     ### Only append if there is something detected
 
-                    # TODO: bbox id is basically the ind index for the given action labels HJL f.ex.
+                    # bbox id is basically the ind index for the given action labels HJL f.ex.
                     per_ind_results = [ind_index]
                     per_ind_results.extend(bbox)
 
@@ -2009,7 +2007,7 @@ class ActionLoader():
                                    tt[0]]  # first the camera id, tt[0] is track id, tt[6] pred label, tt[7] pred_score
                         bbox = tt[1:5]  # bbox coordinates
                         #cid = Cid[i_cam][tt[0]][i_frame]  # temporally smoothed individual ID label
-                        cid = -1 #tt[0] #todo: TEST with -1 and tt[0] for differences
+                        cid = -1 #tt[0] #TEST with -1 and tt[0] for differences
                         pose2d_raw = np.array(tt[5])  # pose2d
 
 

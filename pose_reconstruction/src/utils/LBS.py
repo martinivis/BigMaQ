@@ -16,8 +16,6 @@ import pose_reconstruction.src.utils.utils as utils
 from einops import rearrange
 
 
-
-
 def build_weighted_adjacency_matrix(neighbors, num_vertices):
     """
     Build a weighted adjacency matrix from neighbor information.
@@ -125,6 +123,13 @@ class MeshModel():
         self.f = torch.from_numpy(self.dd["F"]).to(self.device).unsqueeze(0)
 
 
+        hip = self.J[0, 0, :].clone()
+
+        # Center the hip to be at 0
+        # hip = self.J[0, 0, :].clone()
+        self.V -= hip
+        self.J -= hip
+
 
         # Shift the Joints, and Vertices initially depending on the camera setup
         if shift_initially:
@@ -137,6 +142,21 @@ class MeshModel():
             # Scale the model a bit
             self.J *= 0.1
             self.V *= 0.1
+
+
+        # Align with Low Poly, due to an initial misalignment between high and low poly version
+        hip = self.J[0, 0, :].clone()
+
+        target_hip = torch.tensor(
+            [3.9462e-11, 2.4515e-01, -1.9256e-01],
+            device=self.device,
+            dtype=self.J.dtype,
+        )
+
+        hip_delta = target_hip - hip
+        self.V += hip_delta
+        self.J += hip_delta
+
 
 
         self.LBS = LBS(self.J, self.parents, self.weights, self.device)
@@ -276,32 +296,10 @@ class MeshModel():
             textures = TexturesVertex(verts_features=t)
             posed_mesh = Meshes(verts, faces=f, textures=textures)
 
-            #posed_mesh = posed_mesh.to(self.device)
-
-
-            # textures = Textures(verts_rgb=self.vert_colors)
-            # #textures = Textures(verts_rgb=self.segm_color_texture)
-            #
-            # posed_mesh = Meshes([verts.squeeze()], faces=[torch.as_tensor(self.dd["F"], device=self.device)],
-            #                     textures=textures)
-            #
-            # posed_mesh = posed_mesh.to(self.device)
 
             if save_mesh_template is not None:
                 # Accepts (V,3) and (F,3)
                 IO().save_mesh(posed_mesh, save_mesh_template, binary=False, colors_as_uint8=True)
-
-
-                # mesh_ply = MeshPlyFormat()
-                #
-                # path_manger = PathManager()
-                # mesh_ply.save(data=posed_mesh, path=save_mesh_template, binary=False, path_manager=path_manger,
-                #               colors_as_uint8=True)
-
-                # pytorch3d.io.save_obj(save_mesh_template, verts=V.squeeze(), faces=torch.as_tensor(self.dd["F"]),
-                #                       texture_map=textures)
-                #
-                # pytorch3d.io.save_ply()
 
 
             return verts, posed_mesh, rest_pose_shifted_V, joints_coordinates_posed
@@ -411,6 +409,18 @@ def batch_rodrigues(theta, dtype=torch.float32):
     quat = torch.cat([v_cos, v_sin * normalized], dim = 1)
     return quat_to_rotmat(quat).float()
 
+
+
+"""
+Code taken and adapted from avian-mesh:
+https://github.com/marcbadger/avian-mesh/blob/master/models/LBS.py
+@Inproceedings{badger2020,
+  Title          = {3D Bird Reconstruction: a Dataset, Model, and Shape Recovery from a Single View},
+  Author         = {Badger, Marc and Wang, Yufu and Modh, Adarsh and Perkes, Ammon and Kolotouros, Nikos and Pfrommer, Bernd and Schmidt, Marc and Daniilidis, Kostas},
+  Booktitle      = {ECCV},
+  Year           = {2020}
+}
+"""
 
 class LBS():
     '''

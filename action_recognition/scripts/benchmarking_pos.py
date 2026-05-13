@@ -121,8 +121,8 @@ model_activations = ["resnet50", "movinet-a2", "dinov2-base-cls", "vit-base-cls"
 pose_spaces = ["3D-Vert", "2D-KP", "3D-AA", "3D-KP"]
 
 model_idx = 3
-pose_idx = 3
-run_idx = 1
+pose_idx = 2
+run_idx = 0
 
 use_stopper = True
 
@@ -404,7 +404,6 @@ for SA, GI, UP, AF, UV, WO in all_runs:
                             # 3) compute loss
                             loss_margin = margin_crit(logits, target_idx)
 
-                            #todo: margin loss in the val loss?
                             bin_loss = criterion(logits, labels)
                             loss = bin_loss + w1 * loss_margin
 

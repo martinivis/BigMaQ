@@ -230,8 +230,6 @@ class TimeOptimizer(SharedVertexOptimizer):
         ### Current implementation: take the longest initial sequences, take largest 10 cameras, from these take the largest baseline
         # then fill by a pool of the largest cameras for start and with long sequences
 
-        # TODO: current question is a bit why not use the 3d pose by checking with triangulation subsets,
-        #  reproject and filter out wrong detections? see what this would look like..
 
         # cur individual index
         cur_ind_idx = self.action_loader.individuals.index(self.cur_ind)
@@ -1093,13 +1091,10 @@ class TimeOptimizer(SharedVertexOptimizer):
             #if action_index < 268:
             #    continue
 
-            # TODO: check if the individual is one and it is L or N in the row
 
             inds_this_action = self.action_loader.dataset.loc[action_index, "individuals"]
 
             if len(inds_this_action) > 1:
-                continue
-            if ("N" not in inds_this_action) and ("L" not in inds_this_action):
                 continue
 
 
@@ -1111,8 +1106,6 @@ class TimeOptimizer(SharedVertexOptimizer):
             #     continue
 
             self.action_loader.load_action_into_entire_dict(action_index)
-
-            # TODO: save all the images for viewpoints, as well as all 3D keypoints over time, and 2D keypoints
 
 
             ### Solve the alignment of multiple animals here
@@ -1134,8 +1127,11 @@ class TimeOptimizer(SharedVertexOptimizer):
                     self.ind_params_path = join(self.action_loader.hard_drive_loc,
                                                 rf"IndividualFits/{self.cur_ind}_Color.pth")
                 else:
+
+
                     self.ind_params_path = join(self.action_loader.hard_drive_loc,
                                                 rf"IndividualFits/{self.cur_ind}_Color_{False}.pth")
+
 
                 # Move past individuals that are not part of the action
                 if not self.cur_ind in self.action_loader.individuals:
@@ -1235,7 +1231,7 @@ class TimeOptimizer(SharedVertexOptimizer):
 
 
                     path_special_render = r"/media/lucas/FastInternal/BigMaQ/Diverse/ActionsForTalk"
-
+                    #path_special_render = None
 
                     utils.create_videos(self.render_path, cameras=self.cameras_action_display, ind=ind,
                                        action_index=action_index, copy_path=path_special_render)
@@ -1257,7 +1253,7 @@ class TimeOptimizer(SharedVertexOptimizer):
                     and all(ret_list)
                     and all(grad_ok_list)
             )
-            worker_dataset_log[action_index, "nb_epochs"] = self.params_dict["epochs"]
+            #worker_dataset_log[action_index, "nb_epochs"] = self.params_dict["epochs"]
             worker_dataset_log.to_csv(worker_log_path, index=True)
 
 

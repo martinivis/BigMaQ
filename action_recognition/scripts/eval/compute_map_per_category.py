@@ -107,9 +107,11 @@ model_activations = ["resnet50", "movinet-a2", "dinov2-base-cls", "vit-base-cls"
 
 multiple_vision_runs = True
 
-model_idx = 0
+model_idx = 3
 
-run_idx = 2
+
+## Run_idx describes: vis only (0), pos only (1), both (2)
+run_idx = 1
 
 use_stopper = True
 sub_sample = 4
@@ -117,7 +119,7 @@ model_name = model_activations[model_idx]
 
 # to return to faster training, unmount and mount and restart pycharm
 pose_spaces = ["3D-AA", "3D-KP", "3D-Vert", "2D-KP"]
-pose_idx = 0
+pose_idx = 3
 pose_space = pose_spaces[pose_idx]
 
 all_runs = [all_runs[run_idx]]
@@ -128,10 +130,9 @@ for SA, GI, UP, AF, UV, WO in all_runs:
 
     if run_idx == 1:
         if pose_idx <3:
-            camera_set_idx = 1#2 #todo: because of wrong run names before, it is anyway on the 3 cam set
+            camera_set_idx = 1#2 # because of wrong run names before, it is anyway on the 3 cam set
             folds = [0, 1, 2, 3, 4]
         else:
-            # todo: also do multiple 2d views runs!
             if multiple_vision_runs:
                 folds = [-1, 43, 44]
             else:

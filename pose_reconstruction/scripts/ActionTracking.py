@@ -12,7 +12,7 @@ def parse_args():
 
     p.add_argument("--nb-cameras", type=int, default=6,
                    help="How many cameras to retain in optimization (1-16).")
-    p.add_argument("--render-col", action="store_true", default=False,
+    p.add_argument("--render-col", action="store_true", default=True,
                    help="Render in colors.")
     p.add_argument("--high-poly", action="store_true", default=False,
                    help="Use high-poly mesh.")
@@ -139,7 +139,7 @@ def main():
     use_base_line = True
 
     cam_approach = 0
-    small_change_note = f"EntireSetOpt{time_scalar:.3f}_complete_overlap_flow_mvtrack_basedist_{action_loader.min_cams_cross_view}_{use_base_line}_final"
+    small_change_note = f"EntireSetOpt{time_scalar:.3f}_complete_overlap_flow_mvtrack_basedist_{action_loader.min_cams_cross_view}_{use_base_line}_final_individual_switch"
     # Save time by not rendering all the time
     epoch_render_mod = compute_cfg["epoch_render_mod"]
     render_video = compute_cfg["render_video"]
@@ -156,7 +156,7 @@ def main():
     time_optimizer.selection_scalar = time_scalar
 
 
-    specific_action_index = 399
+    specific_action_index = None#399#56
     load_pose_params = True
     export_path = None
 

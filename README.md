@@ -1,58 +1,85 @@
+
 # BigMaQ
 
 
+<div align="center">
+<video controls width="700">
+    <source src="assets/SupplementaryVideo_Ext_red.mp4" type="video/mp4">
+  </video>
+</div>
+
+<p>
+<p align="center">
+<a href="https://arxiv.org/abs/2602.19874">📄 Paper</a> |
+<a href="https://docs.google.com/forms/d/e/1FAIpQLSf30FV5pyhGQac8C5tSM2dW17n7j4xpB_2sNu9UnkeBYdW93Q/viewform?usp=sharing&ouid=116164636450166882978">📊 Dataset request </a> |
+</p>
+
+
+## Introduction
+
+BigMaQ is a large-scale dataset for 3D macaque motion capture, pose estimation, and behavioral understanding. The dataset comprises more than 750 multi-view recordings of interacting rhesus macaques captured with 16 calibrated cameras, together with detailed 3D skeletal motion annotations, subject-specific textured avatars, and curated behavioral labels.
+
+By integrating surface-based pose and shape representations into animal action recognition, BigMaQ moves beyond sparse keypoint descriptions and enables a richer characterization of posture, motion, and social interaction. The dataset also introduces BigMaQ500, a benchmark linking image observations with 3D pose representations for cross-subject action recognition.
+
+BigMaQ is intended as a resource for research in computer vision, graphics, neuroscience, ethology, and animal behavior analysis, supporting the development of robust methods for markerless motion capture and behavioral recognition in non-human primates.
+
 ## Installation
-- Install pytorch3d from source
-- then install torch etc.
 
+### Environment
 
-## ToDOS
-- implement the smoothing for procurstes, joint angle limits, alignment of votes 
+The code has been tested on Ubuntu 20.04 with CUDA 11.6, Python 3.9, PyTorch 1.13.0 and PyTorch3D 0.7.2.
+Please create a conda environment for your specific setup according to [Pytorch3D installation](https://github.com/facebookresearch/pytorch3d/blob/main/INSTALL.md).
+Afterwards, you can install the remaining packages for the environment listed in `pose_reconstruction/requirements.txt`, via:
 
+```shell
+    pip install -r requirements.txt
+```
 
+If you want to optimize the pose in a multi-view consistent fashion similar to this paper [macaquepose3d](https://www.science.org/doi/10.1126/sciadv.adn1355) ,
+you should also install the pictorial package:
 
-
-- Joint angle limits:
-  - for over time optimization anyway quite low factor, but maybe for cases where there are flips etc. that may make sense
-  - --> implement optimization over the entire dataset that we put to the side instead of this exemplary action.
-
-
-- test some of these implementations on an exemplary video:
-  - /media/lucas/V-2/Session8/Actions/Interaction/Displacement_G_T_10
-  - Tonic 73, 74 frame , would be good to check for angle limitations
-- Find a single animal video where the procrustes does make a flicker in the video
-- Pose limit already works quite good. for simple example
-
-
-- After it all runs, clean the code for unnecessary things, dead code
-
-
-- for a given action:
-  - 1/7 GB for masks of entire video size
-  - a little more for yolo crops
-  - ---> try to get the images out of the videos
-
-
-## Installation of pytorch3d:
-mamba install pytorch=1.13.0 torchvision pytorch-cuda=11.6 -c pytorch -c nvidia
-  142  mamba install pytorch=1.13.0 torchvision=0.14.0 torchaudio=0.13.0 pytorch-cuda=11.6   -c pytorch -c nvidia -c conda-forge
-  143  mamba install iopath -c iopath -c conda-forge
-  144  mamba install pytorch3d -c pytorch3d -c conda-forge
-
-- then install with pip install -r requirements.txt the rest
-- for pictorial stuff
-
-
-- first install torch and then afterwards install pytorch3d
-
-- installing pictorial:
-- source /path/to/venv/bin/activate
-cd /path/to/pictorial_package
+```shell
+cd /BigMaQ/pose_reconstruction/src/m_lib
 python -m pip install cython numpy
 python setup.py build_ext --inplace
 python -m pip install -e .
+```
+
+## Code Execution
+
+- Please send a data request first [here](https://docs.google.com/forms/d/e/1FAIpQLSf30FV5pyhGQac8C5tSM2dW17n7j4xpB_2sNu9UnkeBYdW93Q/viewform?usp=sharing&ouid=116164636450166882978), and set up the link to it in `pose_reconstruction/cfgs/Setup_Local_cfg.json`.
+- To run the script, please activate the environment, navigate into the folder `pose_reconstruction/scripts` and run the following in the command line
+```code
+python ActionTracking.py
+```
+- You can further change the number of cameras in optimization by `--nb_cameras 10`, here exemplary shown for 10 cameras
+- By setting the flag `--high-poly`, you can render the high-poly mesh, but increases optimization time
+- By additionally setting the flag `--render-col`, you can render the mesh in color.
+- Rendered images are found in `data/Action/Optimization_Renderings`. After optimization the same folder contains vidos of the surface tracks from two views.
 
 
-TODOS general:
-- restart if sequence is lost as there are not 6 views available
-- 
+
+
+## Acknowledgements
+If you find this dataset and code useful for your research, or use data generated by our model, 
+please cite as follows:
+```code
+@inproceedings{
+martini2026bigmaq,
+title={BigMaQ: A Big Macaque Motion and Animation Dataset Bridging Image and 3D Pose Representations},
+author={Lucas Martini and Alexander Lappe and Anna Bogn{\'a}r and Rufin Vogels and Martin A. Giese},
+booktitle={The Fourteenth International Conference on Learning Representations},
+year={2026},
+url={https://openreview.net/forum?id=n7viYE7Xbo}
+}
+```
+## References
+
+This project builds upon several open-source research efforts in 3D animal pose estimation and reconstruction. In particular, portions of the implementation, design choices, and processing pipeline were adapted from or inspired by the following works:
+
+- [3D Bird Reconstruction: A Dataset, Model, and Shape Recovery from a Single View](https://github.com/marcbadger/avian-mesh)
+
+- [Anipose: A Toolkit for Robust Markerless 3D Pose Estimation](https://github.com/lambdaloop/anipose) 
+
+- [Three-dimensional markerless motion capture of multiple freely behaving monkeys toward automated characterization of social behavior](https://github.com/PrimatoModelling/macaque3Dpose/tree/main)
+
