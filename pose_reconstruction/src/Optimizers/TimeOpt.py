@@ -1009,59 +1009,30 @@ class TimeOptimizer(SharedVertexOptimizer):
 
     def iterate_actions(self, render=True, worker=-1, specific_action_index=None, export_path=None, path_to_mesh=None,
                         all_view_render=False, render_in_default_col = False, load_prev_pose_params=False, debug=True,
-                        indep_cam=None):
+                        indep_cam=None, run_ascend=True):
 
 
-        # Iterate all the actions of the dataset by individual
-
-        #for idx, row in tqdm(df.iterrows(), total=len(df)):
-
-        # action_indices_to_iterate = self.action_loader.dataset.index.tolist()
-        #
-        #
-        # action_indices_as_array = np.array(action_indices_to_iterate)
-        # action_indices_batches = np.array_split(action_indices_as_array, self.nb_workers)
-        #
         assert 0 <= worker < self.nb_workers
-        #
-        # action_indices_to_iterate = list(action_indices_batches[worker])
+
+
 
         action_indices_batches = self.split_indices_by_cost(
             self.action_loader.dataset,
             self.action_loader.dataset.index.tolist()
         )
 
-        # Start with smaller ones first
-        action_indices_to_iterate = action_indices_batches[worker][::-1]
+        ## Largest first
+        action_indices_to_iterate = action_indices_batches[worker]
 
+        if run_ascend:
+            action_indices_to_iterate = [x for x in range(len(action_indices_to_iterate))]
 
-        # 499 is displacement
-        #idx = self.action_loader.dataset.index[self.action_loader.dataset["Unnamed: 0"] == 499][0]
-
-        # 145 is eating to check for procrustes smoothness
-        #idx = self.action_loader.dataset.index[self.action_loader.dataset["Unnamed: 0"] == 145][0]
-
-        # 761 long temporal action, three individuals
-        #idx = self.action_loader.dataset.index[self.action_loader.dataset["Unnamed: 0"] == 761][0]
-
-        # 438
-        #idx = self.action_loader.dataset.index[self.action_loader.dataset["Unnamed: 0"] == 438][0]
-
-        # Failure case with 3 individuals
-        #idx = self.action_loader.dataset.index[self.action_loader.dataset["Unnamed: 0"] == 643][0]
-
-        # Failure case with 3 individuals,
-        #idx = self.action_loader.dataset.index[self.action_loader.dataset["Unnamed: 0"] == 473][0]
-
-        #action_indices_to_iterate = [idx]
 
         worker_dataset_log = self.action_loader.dataset.copy()
         worker_dataset_log["optimized_successfully"] = False
         worker_dataset_log["nb_epochs"] = 0
         worker_dataset_log["ret_list"] = None
         worker_dataset_log["grad_ok_list"] = None
-
-
 
 
         log_dir = join(self.action_loader.hard_drive_loc, "ActionDataset", "WorkerLogs")
@@ -1071,40 +1042,20 @@ class TimeOptimizer(SharedVertexOptimizer):
 
         for action_iterate_index, action_index in enumerate(action_indices_to_iterate):
 
-
-
             ### If there is optimization renderin in acti
             action_path = self.action_loader.dataset.loc[action_index, "path"]
             renderings = join(action_path, "Optimization_Renderings")
 
-            if os.path.exists(renderings):
-                shutil.rmtree(renderings)
 
             if specific_action_index is not None:
                 if action_index != specific_action_index:
                     continue
-            # # # an action that gets a nan
-            # if action_index != 141:
-            #    continue
 
-            # Last indices being processed...
-            #if action_index < 268:
-            #    continue
-
-
-            inds_this_action = self.action_loader.dataset.loc[action_index, "individuals"]
-
-            if len(inds_this_action) > 1:
-                continue
 
 
             self.action_iterate_index = action_iterate_index
+
             # Load the tracking data of that action
-
-            # nb_inds = 1
-            # if self.SA and nb_inds!=1:
-            #     continue
-
             self.action_loader.load_action_into_entire_dict(action_index)
 
 
@@ -1227,11 +1178,7 @@ class TimeOptimizer(SharedVertexOptimizer):
                     self.render_parameters_action()
 
 
-                    #self.render_action(action_index_to_render=action_index)
-
-
-                    path_special_render = r"/media/lucas/FastInternal/BigMaQ/Diverse/ActionsForTalk"
-                    #path_special_render = None
+                    path_special_render = None
 
                     utils.create_videos(self.render_path, cameras=self.cameras_action_display, ind=ind,
                                        action_index=action_index, copy_path=path_special_render)
@@ -1255,87 +1202,6 @@ class TimeOptimizer(SharedVertexOptimizer):
             )
             #worker_dataset_log[action_index, "nb_epochs"] = self.params_dict["epochs"]
             worker_dataset_log.to_csv(worker_log_path, index=True)
-
-
-    def render_talk(self):
-
-
-        path = join(self.action_loader.action_path, "RenderTalk")
-        image_path = join(path, "images")
-
-        os.makedirs(path, exist_ok=True)
-        os.makedirs(image_path, exist_ok=True)
-
-        images = self.action_loader.undist_rgbs
-        keypoints_3d = self.posed_3d_keypoints.detach().cpu().numpy()
-        keypoints_3d = np.asarray(keypoints_3d, dtype=np.float64)
-
-        keypoints2d_path = join(path, "keypoints2d.npz")
-        keypoints3d_path = join(path, "keypoints3d.npz")
-
-        keypoints2d_store = {}
-        keypoints3d_store = {}
-
-        if os.path.exists(keypoints2d_path):
-            keypoints2d_store.update(dict(np.load(keypoints2d_path, allow_pickle=True)))
-
-        if os.path.exists(keypoints3d_path):
-            keypoints3d_store.update(dict(np.load(keypoints3d_path, allow_pickle=True)))
-
-        for cam_name, big_cam in self.action_loader.big_cams.cam_dict.items():
-
-            if cam_name not in images:
-                continue
-
-            cam_image_path = join(image_path, str(cam_name))
-            os.makedirs(cam_image_path, exist_ok=True)
-
-            R = np.asarray(big_cam.R, dtype=np.float64)
-            t = np.asarray(big_cam.t, dtype=np.float64)
-            K = np.asarray(big_cam.K, dtype=np.float64)
-            d = np.asarray(big_cam.d, dtype=np.float64)
-
-
-            for frame_idx, (frame_key, image) in enumerate(images[cam_name].items()):
-                save_key = f"{cam_name}/{frame_key}"
-
-                frame_keypoints_3d = keypoints_3d[frame_idx]
-                projected_keypoints = cv2.projectPoints(
-                    frame_keypoints_3d,
-                    R,
-                    t,
-                    K,
-                    d
-                )[0].reshape(-1, 2)
-
-                keypoints2d_store[save_key] = projected_keypoints
-                keypoints3d_store[save_key] = frame_keypoints_3d
-
-                image_out = image.copy()
-
-                if image_out.dtype != np.uint8:
-                    image_out = np.clip(image_out, 0, 255).astype(np.uint8)
-
-                if image_out.ndim == 3 and image_out.shape[-1] == 3:
-                    image_out = cv2.cvtColor(image_out, cv2.COLOR_RGB2BGR)
-                #
-                # h, w = image_out.shape[:2]
-                #
-                # for x, y in projected_keypoints:
-                #     x = int(round(x))
-                #     y = int(round(y))
-                #
-                #     if 0 <= x < w and 0 <= y < h:
-                #         cv2.circle(image_out, (x, y), 4, (0, 255, 0), -1)
-                #         cv2.circle(image_out, (x, y), 6, (0, 0, 0), 1)
-
-                cv2.imwrite(join(cam_image_path, f"{frame_key}.png"), image_out)
-
-        np.savez_compressed(keypoints2d_path, **keypoints2d_store)
-        np.savez_compressed(keypoints3d_path, **keypoints3d_store)
-
-        #0
-
 
 
 

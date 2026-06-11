@@ -10,10 +10,21 @@ from os.path import join
 import pandas as pd
 from scipy.spatial.transform import Rotation as R
 
+current_path = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.abspath(os.path.join(current_path, "..", ".."))
 
-base_path = r"/media/lucas/FastInternal/BigMacaque/ActionDataset"
 
-csv_path    = "/media/lucas/FastInternal/BigMacaque/ActionDataset/tracked_actions.csv"
+config_path = os.path.join(project_root, "cfgs", "Setup_Action.json")
+
+
+import json
+
+with open(config_path, "r") as f:
+    cfg = json.load(f)
+
+base_path = cfg["action_loc"]
+csv_path    = join(base_path, "tracked_actions.csv")
+
 
 opt_cams_num = 6
 # Save as action_params extended as npz

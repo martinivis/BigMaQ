@@ -934,11 +934,6 @@ class BaseOptimizer():
         Creates renderers on the fly
         :return:
         """
-        # This shouldn't be necessary with the frame cam key
-        #self.silhouette_renderer = {}
-        #self.display_renderer = {}
-        #self.cams_bigmac = {}
-        #self.cameras = {}
 
         boundaries_cameras = self.action_loader.big_cams.get_camera_boundaries()
         #self.lights = PointLights(device=self.device, location=torch.from_numpy(boundaries_cameras[0, :][None]))

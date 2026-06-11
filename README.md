@@ -43,17 +43,171 @@ python setup.py build_ext --inplace
 python -m pip install -e .
 ```
 
-## Code Execution
+## Code
 
-- Please send a data request first [here](https://docs.google.com/forms/d/e/1FAIpQLSf30FV5pyhGQac8C5tSM2dW17n7j4xpB_2sNu9UnkeBYdW93Q/viewform?usp=sharing&ouid=116164636450166882978) (we are currently in the last steps of hosting it), and set up the link to it in `pose_reconstruction/cfgs/Setup_Local_cfg.json`.
+
+The repository is organized as shown below. Before running either the action recognition or pose reconstruction pipelines, please configure the dataset location in the corresponding JSON configuration files within the `cfgs` folders.
+To access the full dataset, please submit a data request [here](https://docs.google.com/forms/d/e/1FAIpQLSf30FV5pyhGQac8C5tSM2dW17n7j4xpB_2sNu9UnkeBYdW93Q/viewform?usp=sharing&ouid=116164636450166882978).
+If you are only interested in the reconstructed pose priors and mesh models, please refer to the **Pose Priors Only** section below.
+
+```text
+.
+├── pose_reconstruction
+│   ├── cfgs/      # Configuration files
+│   ├── data/      # Dataset and data-related resources
+│   ├── scripts/   # Utility and processing scripts
+│   └── src/       # Core source code
+│
+└── action_recognition
+    ├── cfgs/      # Configuration files
+    ├── model/     # Model architectures
+    ├── scripts/   # Training, evaluation, and data processing scripts
+    └── src/       # Core source code and utilities
+```
+
+### Dataset Structure
+
+The dataset is divided into the original BigMaQ recordings (`BigMaQ_rec`) and the BigMaQ500 action recognition benchmark (`BigMaQ500`).
+
+```text
+<BigMaQ>
+├── BigMaQ_rec
+│   ├── dataset_overview.csv
+│   ├── Calibration/
+│   ├── ColorCalibration/
+│   ├── IndividualFits/
+│   ├── Session1/
+│   ├── ...
+│   └── BigMaQ_latest_pose_reconstructions/
+│
+└── BigMaQ500
+    ├── Actions/
+    └── tracked_actions.csv
+```
+
+The BigMaQ recordings are organized into recording sessions. Each session corresponds to entries in `dataset_overview.csv`. Geometric camera calibrations are stored in `Calibration/`, color calibration files in `ColorCalibration/`, and low- and high-poly individual fits in `IndividualFits/`.
+
+The latest reconstructed poses are provided in `BigMaQ_latest_pose_reconstructions/`. Each action is stored in a separate folder containing the reconstructed pose parameters used for visualization, stimulus generation, and action recognition experiments.
+
+The low- and high-poly base mesh models are included in the code project under:
+
+```text
+pose_reconstruction/data/Mesh/
+```
+
+### Pose Priors Only
+
+If you are only interested in the reconstructed pose priors and do not require access to the original video recordings, we provide a lightweight archive containing the latest pose reconstructions of the BigMaQ dataset.
+
+Compared to the reconstructions used in the paper, this release additionally incorporates joint angle limits and multi-view keypoint tracklet processing.
+
+To match the expected directory structure, create the following folders and extract the archive into `BigMaQ_rec/`:
+
+```text
+BigMaQ/
+├── BigMaQ_rec/
+│   └── BigMaQ_latest_pose_reconstructions/
+|   dataset_overview.csv
+```
+
+The latest pose reconstructions can be downloaded from:
+
+https://zenodo.org/records/20649325
+
+
+### Pose Reconstruction
+- Before running any scripts with video data, please update the following configuration file, `pose_reconstruction/cfgs/Setup_Local_cfg.json`. Set the value of `hard_drive_loc` to the location of your dataset on disk.
 - To run the script, please activate the environment, navigate into the folder `pose_reconstruction/scripts` and run the following in the command line
 ```code
 python ActionTracking.py
 ```
 - You can further change the number of cameras in optimization by `--nb_cameras 10`, here exemplary shown for 10 cameras
+- To optimize only a specific action instead of iterating through the entire dataset, use `--specific-action-index 0`, which, in this case, will optimize/load the first action.
 - By setting the flag `--high-poly`, you can render the high-poly mesh, but increases optimization time
 - By additionally setting the flag `--render-col`, you can render the mesh in color.
-- Rendered images are found in `data/Action/Optimization_Renderings`. After optimization the same folder contains vidos of the surface tracks from two views.
+- Rendered images are found for the specific action in the folder `Optimization_Renderings`. After optimization the same folder contains videos of the surface tracks from two views.
+
+In case you want to optimize the pose reconstruction yourself, please consider additional information
+[here](pose_reconstruction/README.md).
+
+### Stimulus Rendering
+
+You can use the reconstructed pose priors to render arbitrary actions from arbitrary viewpoints and with arbitrary macaque identities. An example is provided in `pose_reconstruction/scripts/ActionRendering.py`.
+
+Run the script from within `pose_reconstruction/scripts`:
+
+```bash
+python ActionRendering.py
+```
+
+The arguments `--specific-action-index`, `--high-poly`, and `--render-col` behave identically to the pose reconstruction pipeline.
+
+Additional rendering-specific arguments include:
+
+- `--individual-index 0` selects which individual from a multi-animal action to render.
+- `--display-individual L` renders the selected action using the body shape and appearance of another individual (`J`, `H`, `L`, `O`, `N`, `T`, `C`, `G`).
+- `--frame-idx 50` renders a specific frame of the reconstructed action.
+- `--azim`, `--elev`, and `--dist` control the camera viewpoint.
+
+Rendered images are saved to the corresponding action folder in the pose reconstruction directory.
+
+
+### Action Recognition
+
+In the dataset BigMaQ500, we provide for each Action the original pose rotation angles, 2D keypoints, 3D keypoints, and mesh vertices. Additionally, we provide only precomputed `vit-base-cls` tokens to keep the dataset size manageable.
+
+#### Training
+
+- To run the benchmark, activate the environment, navigate to `action_recognition/scripts`, and execute:
+
+```bash
+python benchmarking.py
+```
+
+The input modality can be selected using `--run-idx`:
+
+- `--run-idx 0`: Visual-only model (ViT features)
+- `--run-idx 1`: Pose-only model
+- `--run-idx 2`: Visual + Pose model
+
+#### Evaluation
+
+To aggregate the trained model results and report mean Average Precision (mAP), run:
+
+```bash
+python compute_map_per_category.py
+```
+
+The evaluation script loads the stored `metrics.csv` files and reports overall and category-wise mAP values.
+
+##### Arguments
+
+- `--run-idx`
+  - `0`: Visual-only
+  - `1`: Pose-only
+  - `2`: Visual + Pose
+
+- `--pose-idx`
+
+  Selects the pose representation to evaluate:
+
+  - `0`: `3D-AA` (joint rotation angles)
+  - `1`: `3D-KP` (3D keypoints)
+  - `2`: `3D-Vert` (mesh vertices)
+  - `3`: `2D-KP` (2D keypoints)
+
+Example:
+
+```bash
+python compute_map_per_category.py --run-idx 1 --pose-idx 2
+```
+
+This evaluates the pose-only benchmark using the reconstructed mesh vertices (`3D-Vert`).
+
+For pose-only experiments with 3D pose representations (`3D-AA`, `3D-KP`, `3D-Vert`), results are averaged over 5 folds. All other configurations are averaged over 3 random seeds.
+
+**Note**: The Python environment used for action recognition was based on newer PyTorch/CUDA versions than those typically supported by PyTorch3D and used for pose reconstruction. If you would like to reproduce the exact results reported in the paper, please refer to the dependency versions listed in `action_recognition/requirements.txt` and consider using a separate environment for action recognition.
+
 
 
 ## License

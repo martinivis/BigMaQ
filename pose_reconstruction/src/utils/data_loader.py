@@ -703,12 +703,7 @@ class ActionLoader():
 
 
             base = Path(self.hard_drive_loc)
-            old_path = Path(row_series["path"])
-
-            find_str = "BigMaQ"
-            relative = old_path.parts[old_path.parts.index(find_str) + 1:]
-            action_path = base.joinpath(*relative)
-
+            action_path = Path(row_series["path"])
 
             self.action_path = str(action_path)
 
@@ -1965,7 +1960,6 @@ class ActionLoader():
         # Camera IDS
         ID = list(self.available_videos.keys())
 
-        # Ts which is? IDK
         # List (nb_cameras) of list (nb_frames), list(
 
 
@@ -1973,11 +1967,6 @@ class ActionLoader():
 
         if not os.path.exists(alignment_path) or self.force_action_reload:
             T = self.generate_tracking_labels()
-
-            # filling the data works, but the cid and tt[0] are a bit hard to understand, more research necessary
-
-
-                # Per camera it is frames, detected individuals
 
 
             # ID of2dtrack

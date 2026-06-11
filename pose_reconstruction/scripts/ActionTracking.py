@@ -18,6 +18,8 @@ def parse_args():
                    help="Use high-poly mesh.")
     p.add_argument("--compute-cfg", type=str, default=r"Setup_Local_cfg.json")
     p.add_argument("--worker", type=int, default=0)
+    p.add_argument("--specific-action-index", type=int, default=None,
+                   help="Run only this specific action index instead of the full dataset.")
 
     return p.parse_args()
 
@@ -40,9 +42,6 @@ def main():
     for p in (repo_root, project_root):
         if p not in sys.path:
             sys.path.insert(0, p)
-
-    #sys.path.append(current_path)
-    #sys.path.append(project_root)
 
     from pose_reconstruction.src.utils.data_loader import ActionLoader
     from pose_reconstruction.src.Optimizers.TimeOpt import TimeOptimizer
@@ -72,11 +71,11 @@ def main():
     drive_loc = join(project_root, r"data")
 
     if high_poly:
-        vertex_weights_symmetry = join(drive_loc, r"Mesh/Macaque_MDL_aslist_vertices.json")
-        path_to_mesh = join(drive_loc, r"Mesh/Macaque_extended_joints_MeshInfoHighPoly.json")
+        vertex_weights_symmetry = join(drive_loc, r"Mesh/vertex_symmetry.json")
+        path_to_mesh = join(drive_loc, r"Mesh/macaque.json")
     else:
-        vertex_weights_symmetry = join(drive_loc, r"Mesh/vertex_info_hands_excluded_LOWPOLY.json")
-        path_to_mesh = join(drive_loc, r"Mesh/Macaque_LOWPolyLastRotScaled.json")
+        vertex_weights_symmetry = join(drive_loc, r"Mesh/vertex_symmetry_LOWPOLY.json")
+        path_to_mesh = join(drive_loc, r"Mesh/macaque_LOWPOLY.json")
 
     max_img_size = 100
 
@@ -156,7 +155,8 @@ def main():
     time_optimizer.selection_scalar = time_scalar
 
 
-    specific_action_index = None#399#56
+    # If set to None, run the entire dataset
+    specific_action_index = args.specific_action_index
     load_pose_params = True
     export_path = None
 

@@ -13,14 +13,11 @@ import numpy as np
 from action_recognition.src.utils import longest_common_interval
 
 
-
 source_drive = r"/media/lucas/V-2"
-source_drive = r"/media/lucas/W-2/BigMaQ"
 
-dest_drive = r"/media/lucas/FastInternal/BigMacaque/ActionDataset"
+dest_drive = r"/media/lucas/FastInternal/BigMaQ/BigMaQ500"
 csv_path    = "/media/lucas/V-2/LabelInformation/EntireDataset/tracked_actions.csv"
-
-csv_path = r"/media/lucas/W-2/BigMaQ/dataset_overview.csv"
+#csv_path = r"/media/lucas/W-2/BigMaQ/dataset_overview.csv"
 
 def create_folder(path):
     os.makedirs(path, exist_ok=True)
@@ -64,7 +61,7 @@ paths_to_skip = ["/media/lucas/V-2/Session9/Actions/Interaction/CollectiveIntere
 model_activations = ["resnet50", "movinet-a2", "dinov2-base-cls", "vit-base-cls",
                      "dinov2-base-patch", "vit-base-patch","timesformer-base-finetuned-k400", "videoprism_public_v1_base_hf"]
 
-copy_model = 3
+copy_model = 0
 
 model_name = model_activations[copy_model]#"resnet50"
 

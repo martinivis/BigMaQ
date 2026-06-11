@@ -10,10 +10,10 @@ import shutil
 import re
 import torch
 import numpy as np
-from src.utils import longest_common_interval
+from action_recognition.src.utils import longest_common_interval
 
 source_drive = r"/media/lucas/V-2"
-dest_drive = r"/media/lucas/FastInternal/BigMacaque/ActionDataset"
+dest_drive = r"/media/lucas/FastInternal/BigMaQ/BigMaQ500"
 csv_path    = "/media/lucas/V-2/LabelInformation/EntireDataset/tracked_actions.csv"
 
 
