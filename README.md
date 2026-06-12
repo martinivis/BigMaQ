@@ -107,12 +107,13 @@ To match the expected directory structure, create the following folders and extr
 BigMaQ/
 ├── BigMaQ_rec/
 │   └── BigMaQ_latest_pose_reconstructions/
+│   └── IndividualFits/
 |   dataset_overview.csv
 ```
 
 The latest pose reconstructions can be downloaded from:
 
-https://zenodo.org/records/20649325
+https://zenodo.org/records/20649324
 
 
 ### Pose Reconstruction
