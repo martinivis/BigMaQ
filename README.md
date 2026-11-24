@@ -13,6 +13,15 @@
 <a href="https://martinivis.github.io/BigMaQ/">🌐 Project Page</a>
 </p>
 
+**Note on dataset availability**
+
+External access to the university servers is currently restricted. Therefore, I am temporarily unable to share the dataset.
+
+Please feel free to register your interest by filling out the <a href="https://docs.google.com/forms/d/e/1FAIpQLSf30FV5pyhGQac8C5tSM2dW17n7j4xpB_2sNu9UnkeBYdW93Q/viewform?usp=sharing&ouid=116164636450166882978"> dataset request </a> form. Once external access is restored, I will provide you with a download link.
+
+Thank you for your patience and understanding!
+
+
 ## Introduction
 
 BigMaQ is a large-scale dataset for 3D macaque motion capture, pose estimation, and behavioral understanding. The dataset comprises more than 750 multi-view recordings of interacting rhesus macaques captured with 16 calibrated cameras, together with detailed 3D skeletal motion annotations, subject-specific textured avatars, and curated behavioral labels.
