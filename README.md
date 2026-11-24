@@ -13,7 +13,7 @@
 <a href="https://martinivis.github.io/BigMaQ/">🌐 Project Page</a>
 </p>
 
-**Note on dataset availability**
+:warning: **Note on dataset availability**
 
 External access to the university servers is currently restricted. Therefore, I am temporarily unable to share the dataset.
 
